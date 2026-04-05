@@ -119,8 +119,6 @@ export default function ActivityLog({ date, saveCounter }: Props) {
     if (!customName.trim()) return;
     const maxSort = categories.reduce((max, c) => Math.max(max, c.sort_order), 0);
     const subLabel =
-      customSubType === "boolean"   ? "Yes?" :
-      customSubType === "distance"  ? "How far? (miles)" :
       customSubType === "intensity" ? "Intensity level" : null;
 
     const { data: newCat } = await supabase.from("activity_categories").insert({
@@ -221,8 +219,6 @@ export default function ActivityLog({ date, saveCounter }: Props) {
             className="w-full p-2 border rounded-lg text-gray-900"
           >
             <option value="none">No follow-up question</option>
-            <option value="boolean">Yes/No question</option>
-            <option value="distance">Distance (miles)</option>
             <option value="intensity">Intensity (light/medium/heavy)</option>
           </select>
           <div className="flex gap-2">
