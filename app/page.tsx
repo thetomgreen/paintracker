@@ -103,7 +103,7 @@ export default function Home() {
         <p className="text-center text-xs text-yellow-700 font-medium mb-1 uppercase tracking-wide">
           Test mode — tap to switch screen
         </p>
-        <div className="flex gap-2 max-w-lg mx-auto mb-2">
+        <div className="flex gap-2 max-w-lg mx-auto">
           {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
             <button
               key={s}
@@ -117,14 +117,14 @@ export default function Home() {
               {SCREEN_CONFIG[s].emoji} {SCREEN_CONFIG[s].label}
             </button>
           ))}
+          <button
+            onClick={handleReset}
+            disabled={resetting}
+            className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
+          >
+            {resetting ? "…" : "🗑"}
+          </button>
         </div>
-        <button
-          onClick={handleReset}
-          disabled={resetting}
-          className="w-full max-w-lg mx-auto block py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
-        >
-          {resetting ? "Resetting…" : "🗑 Reset today's data"}
-        </button>
       </div>
 
       <div className="h-24" />
