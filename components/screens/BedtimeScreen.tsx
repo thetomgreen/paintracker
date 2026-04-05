@@ -1,32 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import ActivityLog from "@/components/ActivityLog";
 import PtEntry from "@/components/PtEntry";
+import { PainRow } from "./MorningScreen";
 
-const OXY_OPTIONS = [
-  { value: "last_night", label: "Last night" },
-  { value: "this_afternoon", label: "This afternoon" },
-  { value: "no", label: "No" },
-] as const;
+interface MedEntry {
+  id: string;
+  oxycodone_this_afternoon: boolean;
+}
 
 export default function BedtimeScreen({ date }: { date: string }) {
-  const [painLevel, setPainLevel] = useState<number | null>(null);
-  const [painSaving, setPainSaving] = useState(false);
-  const [painSaved, setPainSaved] = useState(false);
-  const [painEntryId, setPainEntryId] = useState<string | null>(null);
+  const [painLevel,       setPainLevel]       = useState<number | null>(null);
+  const [painEntryId,     setPainEntryId]     = useState<string | null>(null);
+  const [oxyAfternoon,    setOxyAfternoon]    = useState<boolean | null>(null);
+  const [medEntry,        setMedEntry]        = useState<MedEntry | null>(null);
+  const [saving,          setSaving]          = useState(false);
+  const [saved,           setSaved]           = useState(false);
+  // Incrementing this tells ActivityLog and PtEntry to save their state
+  const [saveCounter,     setSaveCounter]     = useState(0);
 
-  const [oxycodone, setOxycodone] = useState<string | null>(null);
-  const [oxySaving, setOxySaving] = useState(false);
-  const [oxyEntryId, setOxyEntryId] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadEntries();
-  }, [date]);
+  useEffect(() => { loadEntries(); }, [date]);
 
   async function loadEntries() {
-    const [painRes, oxyRes] = await Promise.all([
+    const [painRes, medRes] = await Promise.all([
       supabase.from("pain_entries").select("*").eq("entry_date", date).eq("prompt_type", "bedtime").maybeSingle(),
       supabase.from("medication_entries").select("*").eq("entry_date", date).maybeSingle(),
     ]);
@@ -34,113 +32,105 @@ export default function BedtimeScreen({ date }: { date: string }) {
     if (painRes.data) {
       setPainLevel(painRes.data.pain_level);
       setPainEntryId(painRes.data.id);
-      setPainSaved(true);
     }
-    if (oxyRes.data) {
-      setOxycodone(oxyRes.data.oxycodone);
-      setOxyEntryId(oxyRes.data.id);
+    if (medRes.data) {
+      setMedEntry(medRes.data);
+      setOxyAfternoon(medRes.data.oxycodone_this_afternoon);
     }
+    if (painRes.data || medRes.data) setSaved(true);
   }
 
-  async function handlePainSelect(n: number) {
-    setPainLevel(n);
-    setPainSaving(true);
-    setPainSaved(false);
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
 
-    if (painEntryId) {
-      await supabase.from("pain_entries").update({ pain_level: n }).eq("id", painEntryId);
-    } else {
-      const { data } = await supabase.from("pain_entries").insert({
-        prompt_type: "bedtime",
-        pain_level: n,
-        entry_date: date,
-      }).select().single();
-      if (data) setPainEntryId(data.id);
+    // 1. Save bedtime pain entry
+    if (painLevel !== null) {
+      if (painEntryId) {
+        await supabase.from("pain_entries").update({ pain_level: painLevel }).eq("id", painEntryId);
+      } else {
+        const { data } = await supabase.from("pain_entries").insert({
+          prompt_type: "bedtime", pain_level: painLevel, entry_date: date,
+        }).select().single();
+        if (data) setPainEntryId(data.id);
+      }
     }
 
-    setPainSaving(false);
-    setPainSaved(true);
-  }
-
-  async function handleOxySelect(value: string) {
-    setOxycodone(value);
-    setOxySaving(true);
-
-    if (oxyEntryId) {
-      await supabase.from("medication_entries").update({ oxycodone: value }).eq("id", oxyEntryId);
-    } else {
-      const { data } = await supabase.from("medication_entries").insert({
-        entry_date: date,
-        oxycodone: value,
-      }).select().single();
-      if (data) setOxyEntryId(data.id);
+    // 2. Save oxycodone_this_afternoon — update only that column
+    if (oxyAfternoon !== null) {
+      if (medEntry) {
+        await supabase.from("medication_entries")
+          .update({ oxycodone_this_afternoon: oxyAfternoon })
+          .eq("id", medEntry.id);
+      } else {
+        const { data } = await supabase.from("medication_entries").insert({
+          entry_date: date, oxycodone_this_afternoon: oxyAfternoon, oxycodone_last_night: false,
+        }).select().single();
+        if (data) setMedEntry(data);
+      }
     }
 
-    setOxySaving(false);
+    // 3. Tell ActivityLog and PtEntry to save (via saveCounter)
+    setSaveCounter((c) => c + 1);
+
+    setSaving(false);
+    setSaved(true);
   }
 
   return (
     <div className="flex flex-col gap-10">
+
       {/* Pain now */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          How is your level of pain now?
-        </h2>
-        <div className="grid grid-cols-5 gap-3">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              onClick={() => handlePainSelect(n)}
-              disabled={painSaving}
-              className={`h-16 rounded-xl text-2xl font-bold transition-all ${
-                painLevel === n
-                  ? "bg-blue-500 text-white shadow-md scale-105"
-                  : "bg-gray-100 text-gray-700 active:bg-gray-200"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-        {painSaved && (
-          <p className="text-center text-green-600 font-semibold mt-2">Saved ✓</p>
-        )}
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">How is your level of pain now?</h2>
+        <PainRow value={painLevel} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
       </div>
 
       <hr className="border-gray-200" />
 
       {/* Activities */}
-      <ActivityLog date={date} />
+      <ActivityLog date={date} saveCounter={saveCounter} />
 
       <hr className="border-gray-200" />
 
       {/* PT exercises */}
-      <PtEntry date={date} />
+      <PtEntry date={date} saveCounter={saveCounter} />
 
       <hr className="border-gray-200" />
 
-      {/* Oxycodone */}
+      {/* Oxycodone this afternoon */}
       <div>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
-          Did you take oxycodone today?
+          Did you take oxycodone this afternoon?
         </h2>
-        <div className="flex flex-col gap-3">
-          {OXY_OPTIONS.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => handleOxySelect(value)}
-              disabled={oxySaving}
-              className={`w-full py-4 rounded-xl text-lg font-semibold transition-all ${
-                oxycodone === value
-                  ? "bg-green-500 text-white"
-                  : "bg-gray-100 text-gray-700 active:bg-gray-200"
+        <div className="flex gap-3">
+          {([true, false] as const).map((val) => (
+            <button key={String(val)}
+              onClick={() => { setOxyAfternoon(val); setSaved(false); }}
+              className={`flex-1 py-4 rounded-xl text-lg font-semibold transition-all ${
+                oxyAfternoon === val
+                  ? val ? "bg-green-500 text-white" : "bg-gray-400 text-white"
+                  : "bg-gray-100 text-gray-700"
               }`}
             >
-              {label}
+              {val ? "Yes" : "No"}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Single save button for everything */}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className={`w-full py-4 rounded-xl text-lg font-bold transition-all ${
+          saved   ? "bg-green-500 text-white" :
+          saving  ? "bg-blue-300 text-white"  :
+                    "bg-blue-500 text-white active:bg-blue-600"
+        }`}
+      >
+        {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+      </button>
 
       <div className="h-4" />
     </div>

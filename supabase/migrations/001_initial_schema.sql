@@ -49,11 +49,14 @@ CREATE TABLE pt_entries (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Medication (one per day)
+-- Medication: two separate yes/no fields, one row per day
+-- oxycodone_last_night  = asked on morning screen ("did you take oxycodone last night?")
+-- oxycodone_this_afternoon = asked on bedtime screen ("did you take oxycodone this afternoon?")
 CREATE TABLE medication_entries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_date date NOT NULL DEFAULT CURRENT_DATE UNIQUE,
-  oxycodone text NOT NULL CHECK (oxycodone IN ('last_night','this_afternoon','no')),
+  oxycodone_last_night boolean NOT NULL DEFAULT false,
+  oxycodone_this_afternoon boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
