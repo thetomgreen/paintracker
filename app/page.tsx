@@ -8,11 +8,25 @@ import BedtimeScreen from "@/components/screens/BedtimeScreen";
 
 type ScreenType = "morning" | "afternoon" | "evening" | "bedtime";
 
-const SCREEN_CONFIG: Record<ScreenType, { label: string; emoji: string; timeHint: string }> = {
-  morning:   { label: "Morning",   emoji: "🌅", timeHint: "9:00 am" },
-  afternoon: { label: "Afternoon", emoji: "☀️",  timeHint: "1:00 pm" },
-  evening:   { label: "Evening",   emoji: "🌤️", timeHint: "5:00 pm" },
-  bedtime:   { label: "Bedtime",   emoji: "🌙", timeHint: "9:00 pm" },
+const SCREEN_CONFIG: Record<ScreenType, { label: string; emoji: string }> = {
+  morning:   { label: "Morning",   emoji: "🌅" },
+  afternoon: { label: "Afternoon", emoji: "☀️"  },
+  evening:   { label: "Evening",   emoji: "🌤️" },
+  bedtime:   { label: "Bedtime",   emoji: "🌙" },
+};
+
+const THANK_YOU_MSG: Record<ScreenType, string> = {
+  morning:   "Thanks for entering your data. Don't forget to complete your exercises today.",
+  afternoon: "Thanks for entering your data. Don't forget to complete your exercises today.",
+  evening:   "Thanks for entering your data. Don't forget to complete your exercises today.",
+  bedtime:   "Thanks, and sleep well — good night.",
+};
+
+const THANK_YOU_EMOJI: Record<ScreenType, string> = {
+  morning:   "🏋️",
+  afternoon: "🏋️",
+  evening:   "🏋️",
+  bedtime:   "🌙",
 };
 
 function getCurrentScreen(): ScreenType {
@@ -25,9 +39,15 @@ function getCurrentScreen(): ScreenType {
 
 export default function Home() {
   const today = new Date().toISOString().split("T")[0];
-  const [screen, setScreen] = useState<ScreenType>(getCurrentScreen());
+  const [screen,      setScreen]      = useState<ScreenType>(getCurrentScreen());
+  const [thankYou,    setThankYou]    = useState(false);
 
   const config = SCREEN_CONFIG[screen];
+
+  function switchScreen(s: ScreenType) {
+    setScreen(s);
+    setThankYou(false);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -45,13 +65,24 @@ export default function Home() {
 
       {/* Screen content */}
       <main className="max-w-lg mx-auto px-4 py-8">
-        {screen === "morning"   && <MorningScreen date={today} />}
-        {screen === "afternoon" && <PainScreen date={today} promptType="afternoon" />}
-        {screen === "evening"   && <PainScreen date={today} promptType="evening" />}
-        {screen === "bedtime"   && <BedtimeScreen date={today} />}
+        {thankYou ? (
+          <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
+            <span className="text-6xl">{THANK_YOU_EMOJI[screen]}</span>
+            <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+              {THANK_YOU_MSG[screen]}
+            </p>
+          </div>
+        ) : (
+          <>
+            {screen === "morning"   && <MorningScreen date={today} onSaved={() => setThankYou(true)} />}
+            {screen === "afternoon" && <PainScreen    date={today} promptType="afternoon" onSaved={() => setThankYou(true)} />}
+            {screen === "evening"   && <PainScreen    date={today} promptType="evening"   onSaved={() => setThankYou(true)} />}
+            {screen === "bedtime"   && <BedtimeScreen date={today} onSaved={() => setThankYou(true)} />}
+          </>
+        )}
       </main>
 
-      {/* Dev screen switcher — remove before going live */}
+      {/* Dev screen switcher */}
       <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 py-2">
         <p className="text-center text-xs text-yellow-700 font-medium mb-2 uppercase tracking-wide">
           Test mode — tap to switch screen
@@ -60,7 +91,7 @@ export default function Home() {
           {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
             <button
               key={s}
-              onClick={() => setScreen(s)}
+              onClick={() => switchScreen(s)}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                 screen === s
                   ? "bg-yellow-400 text-yellow-900"
@@ -73,7 +104,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Padding so content isn't hidden behind the dev bar */}
       <div className="h-24" />
     </div>
   );

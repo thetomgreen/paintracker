@@ -18,7 +18,8 @@ interface DaySummary {
   sleepQuality: string | null;
   activities: string[];
   pt: string | null;
-  oxycodone: string | null;
+  oxyLastNight: boolean;
+  oxyAfternoon: boolean;
 }
 
 export default function HistoryPage() {
@@ -45,7 +46,7 @@ export default function HistoryPage() {
 
     function getDay(date: string): DaySummary {
       if (!dateMap.has(date)) {
-        dateMap.set(date, { date, pain: {}, sleepQuality: null, activities: [], pt: null, oxycodone: null });
+        dateMap.set(date, { date, pain: {}, sleepQuality: null, activities: [], pt: null, oxyLastNight: false, oxyAfternoon: false });
       }
       return dateMap.get(date)!;
     }
@@ -67,7 +68,9 @@ export default function HistoryPage() {
     }
 
     for (const entry of medRes.data || []) {
-      getDay(entry.entry_date).oxycodone = entry.oxycodone;
+      const day = getDay(entry.entry_date);
+      day.oxyLastNight = entry.oxycodone_last_night;
+      day.oxyAfternoon = entry.oxycodone_this_afternoon;
     }
 
     const sorted = Array.from(dateMap.values()).sort((a, b) => b.date.localeCompare(a.date));
@@ -139,9 +142,14 @@ export default function HistoryPage() {
                   PT: {day.pt}
                 </span>
               )}
-              {day.oxycodone && day.oxycodone !== "no" && (
-                <span className="px-2 py-1 bg-red-50 text-red-700 rounded capitalize">
-                  Oxy: {day.oxycodone.replace("_", " ")}
+              {day.oxyLastNight && (
+                <span className="px-2 py-1 bg-red-50 text-red-700 rounded">
+                  Oxy last night
+                </span>
+              )}
+              {day.oxyAfternoon && (
+                <span className="px-2 py-1 bg-red-50 text-red-700 rounded">
+                  Oxy afternoon
                 </span>
               )}
             </div>

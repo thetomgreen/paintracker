@@ -7,9 +7,10 @@ import { PainRow } from "./MorningScreen";
 interface Props {
   date: string;
   promptType: "afternoon" | "evening";
+  onSaved: () => void;
 }
 
-export default function PainScreen({ date, promptType }: Props) {
+export default function PainScreen({ date, promptType, onSaved }: Props) {
   const [painLevel, setPainLevel] = useState<number | null>(null);
   const [saving,    setSaving]    = useState(false);
   const [saved,     setSaved]     = useState(false);
@@ -50,6 +51,7 @@ export default function PainScreen({ date, promptType }: Props) {
 
     setSaving(false);
     setSaved(true);
+    onSaved();
   }
 
   return (

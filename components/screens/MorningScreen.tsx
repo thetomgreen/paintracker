@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-const SLEEP_OPTIONS = ["terrible", "poor", "fair", "good", "fantastic"] as const;
+const SLEEP_VALUES = ["terrible", "poor", "fair", "good", "fantastic"] as const;
 
 const SLEEP_COLORS: Record<string, string> = {
   terrible:  "bg-red-500 text-white",
@@ -25,7 +25,7 @@ interface MedEntry {
   oxycodone_last_night: boolean;
 }
 
-export default function MorningScreen({ date }: { date: string }) {
+export default function MorningScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
   const [sleepQuality,   setSleepQuality]   = useState<string | null>(null);
   const [painLastNight,  setPainLastNight]   = useState<number | null>(null);
   const [painNow,        setPainNow]         = useState<number | null>(null);
@@ -103,6 +103,7 @@ export default function MorningScreen({ date }: { date: string }) {
 
     setSaving(false);
     setSaved(true);
+    onSaved();
   }
 
   const canSave = sleepQuality !== null && painLastNight !== null && painNow !== null && oxyLastNight !== null;
@@ -113,18 +114,7 @@ export default function MorningScreen({ date }: { date: string }) {
       {/* Sleep quality */}
       <div>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How did you sleep last night?</h2>
-        <div className="flex flex-col gap-3">
-          {SLEEP_OPTIONS.map((opt) => (
-            <button key={opt}
-              onClick={() => { setSleepQuality(opt); setSaved(false); }}
-              className={`w-full py-4 rounded-xl text-lg font-semibold capitalize transition-all ${
-                sleepQuality === opt ? SLEEP_COLORS[opt] : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
+        <SleepRating value={sleepQuality} onChange={(v) => { setSleepQuality(v); setSaved(false); }} />
       </div>
 
       {/* Pain last night */}
@@ -170,6 +160,32 @@ export default function MorningScreen({ date }: { date: string }) {
       >
         {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
       </button>
+    </div>
+  );
+}
+
+function SleepRating({ value, onChange }: { value: string | null; onChange: (v: string) => void }) {
+  const selectedIndex = value ? SLEEP_VALUES.indexOf(value as typeof SLEEP_VALUES[number]) : -1;
+  return (
+    <div>
+      <div className="flex gap-1.5">
+        {SLEEP_VALUES.map((opt, i) => (
+          <button key={opt}
+            onClick={() => onChange(opt)}
+            className={`flex-1 h-12 rounded-lg text-base font-bold transition-all ${
+              selectedIndex === i
+                ? SLEEP_COLORS[opt]
+                : "bg-gray-100 text-gray-700 active:bg-gray-200"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-between mt-2 px-0.5">
+        <span className="text-sm text-gray-500">Terrible</span>
+        <span className="text-sm text-gray-500">Fantastic</span>
+      </div>
     </div>
   );
 }

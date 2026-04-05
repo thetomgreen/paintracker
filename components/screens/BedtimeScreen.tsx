@@ -11,7 +11,7 @@ interface MedEntry {
   oxycodone_this_afternoon: boolean;
 }
 
-export default function BedtimeScreen({ date }: { date: string }) {
+export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
   const [painLevel,       setPainLevel]       = useState<number | null>(null);
   const [painEntryId,     setPainEntryId]     = useState<string | null>(null);
   const [oxyAfternoon,    setOxyAfternoon]    = useState<boolean | null>(null);
@@ -75,6 +75,7 @@ export default function BedtimeScreen({ date }: { date: string }) {
 
     setSaving(false);
     setSaved(true);
+    onSaved();
   }
 
   return (
