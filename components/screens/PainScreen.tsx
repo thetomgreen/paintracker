@@ -79,11 +79,11 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
                                             "bg-gray-200 text-gray-400"
         }`}
       >
-        {saving                          ? "Saving…" :
-         saved                           ? "Saved ✓" :
-         showErrors && painLevel === null ? "Please answer all the questions" :
-                                           "Save"}
+        {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
       </button>
+      {showErrors && painLevel === null && (
+        <p className="text-center text-red-500 font-medium">Please answer all required questions</p>
+      )}
     </div>
   );
 }

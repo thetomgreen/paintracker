@@ -163,11 +163,11 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
                                        "bg-gray-200 text-gray-400"
         }`}
       >
-        {saving            ? "Saving…" :
-         saved             ? "Saved ✓" :
-         showErrors && !canSave ? "Please answer all the questions" :
-                            "Save"}
+        {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
       </button>
+      {showErrors && !canSave && (
+        <p className="text-center text-red-500 font-medium">Please answer all required questions</p>
+      )}
     </div>
   );
 }
