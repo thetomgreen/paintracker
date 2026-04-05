@@ -16,10 +16,13 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
   const [painEntryId,     setPainEntryId]     = useState<string | null>(null);
   const [oxyAfternoon,    setOxyAfternoon]    = useState<boolean | null>(null);
   const [medEntry,        setMedEntry]        = useState<MedEntry | null>(null);
+  const [ptValue,         setPtValue]         = useState<string | null>(null);
   const [saving,          setSaving]          = useState(false);
   const [saved,           setSaved]           = useState(false);
   // Incrementing this tells ActivityLog and PtEntry to save their state
   const [saveCounter,     setSaveCounter]     = useState(0);
+
+  const canSave = painLevel !== null && ptValue !== null && oxyAfternoon !== null;
 
   useEffect(() => { loadEntries(); }, [date]);
 
@@ -95,7 +98,7 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
       <hr className="border-gray-200" />
 
       {/* PT exercises */}
-      <PtEntry date={date} saveCounter={saveCounter} />
+      <PtEntry date={date} saveCounter={saveCounter} onChange={setPtValue} />
 
       <hr className="border-gray-200" />
 
@@ -123,11 +126,11 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
       {/* Single save button for everything */}
       <button
         onClick={handleSave}
-        disabled={saving}
+        disabled={!canSave || saving}
         className={`w-full py-4 rounded-xl text-lg font-bold transition-all ${
-          saved   ? "bg-green-500 text-white" :
-          saving  ? "bg-blue-300 text-white"  :
-                    "bg-blue-500 text-white active:bg-blue-600"
+          saved    ? "bg-green-500 text-white" :
+          canSave  ? "bg-blue-500 text-white active:bg-blue-600" :
+                     "bg-gray-200 text-gray-400"
         }`}
       >
         {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}

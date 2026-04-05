@@ -9,9 +9,11 @@ interface Props {
   date: string;
   /** Increment this from the parent to trigger a save */
   saveCounter: number;
+  /** Called whenever the selection changes, so parent can track for validation */
+  onChange?: (value: string) => void;
 }
 
-export default function PtEntry({ date, saveCounter }: Props) {
+export default function PtEntry({ date, saveCounter, onChange }: Props) {
   const [selected,   setSelected]   = useState<string | null>(null);
   const [existingId, setExistingId] = useState<string | null>(null);
   const isFirstRender = useRef(true);
@@ -35,6 +37,7 @@ export default function PtEntry({ date, saveCounter }: Props) {
     if (data) {
       setSelected(data.completed);
       setExistingId(data.id);
+      onChange?.(data.completed);
     } else {
       setSelected(null);
       setExistingId(null);
@@ -61,7 +64,7 @@ export default function PtEntry({ date, saveCounter }: Props) {
       <div className="flex gap-2">
         {OPTIONS.map((opt) => (
           <button key={opt}
-            onClick={() => setSelected(opt)}
+            onClick={() => { setSelected(opt); onChange?.(opt); }}
             className={`flex-1 py-3 rounded-lg font-semibold capitalize transition-colors ${
               selected === opt
                 ? "bg-green-500 text-white"
