@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 import MorningScreen from "@/components/screens/MorningScreen";
 import PainScreen from "@/components/screens/PainScreen";
 import BedtimeScreen from "@/components/screens/BedtimeScreen";
@@ -39,14 +40,29 @@ function getCurrentScreen(): ScreenType {
 
 export default function Home() {
   const today = new Date().toISOString().split("T")[0];
-  const [screen,      setScreen]      = useState<ScreenType>(getCurrentScreen());
-  const [thankYou,    setThankYou]    = useState(false);
+  const [screen,    setScreen]    = useState<ScreenType>(getCurrentScreen());
+  const [thankYou,  setThankYou]  = useState(false);
+  const [resetKey,  setResetKey]  = useState(0);
+  const [resetting, setResetting] = useState(false);
 
   const config = SCREEN_CONFIG[screen];
 
   function switchScreen(s: ScreenType) {
     setScreen(s);
     setThankYou(false);
+  }
+
+  async function handleReset() {
+    setResetting(true);
+    await Promise.all([
+      supabase.from("pain_entries").delete().eq("entry_date", today),
+      supabase.from("activity_entries").delete().eq("entry_date", today),
+      supabase.from("pt_entries").delete().eq("entry_date", today),
+      supabase.from("medication_entries").delete().eq("entry_date", today),
+    ]);
+    setThankYou(false);
+    setResetKey((k) => k + 1); // force remount of screen components
+    setResetting(false);
   }
 
   return (
@@ -74,20 +90,20 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {screen === "morning"   && <MorningScreen date={today} onSaved={() => setThankYou(true)} />}
-            {screen === "afternoon" && <PainScreen    date={today} promptType="afternoon" onSaved={() => setThankYou(true)} />}
-            {screen === "evening"   && <PainScreen    date={today} promptType="evening"   onSaved={() => setThankYou(true)} />}
-            {screen === "bedtime"   && <BedtimeScreen date={today} onSaved={() => setThankYou(true)} />}
+            {screen === "morning"   && <MorningScreen key={resetKey} date={today} onSaved={() => setThankYou(true)} />}
+            {screen === "afternoon" && <PainScreen    key={resetKey} date={today} promptType="afternoon" onSaved={() => setThankYou(true)} />}
+            {screen === "evening"   && <PainScreen    key={resetKey} date={today} promptType="evening"   onSaved={() => setThankYou(true)} />}
+            {screen === "bedtime"   && <BedtimeScreen key={resetKey} date={today} onSaved={() => setThankYou(true)} />}
           </>
         )}
       </main>
 
       {/* Dev screen switcher */}
       <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 py-2">
-        <p className="text-center text-xs text-yellow-700 font-medium mb-2 uppercase tracking-wide">
+        <p className="text-center text-xs text-yellow-700 font-medium mb-1 uppercase tracking-wide">
           Test mode — tap to switch screen
         </p>
-        <div className="flex gap-2 max-w-lg mx-auto">
+        <div className="flex gap-2 max-w-lg mx-auto mb-2">
           {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
             <button
               key={s}
@@ -102,6 +118,13 @@ export default function Home() {
             </button>
           ))}
         </div>
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          className="w-full max-w-lg mx-auto block py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
+        >
+          {resetting ? "Resetting…" : "🗑 Reset today's data"}
+        </button>
       </div>
 
       <div className="h-24" />
