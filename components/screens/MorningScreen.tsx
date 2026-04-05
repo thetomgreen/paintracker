@@ -25,16 +25,24 @@ interface MedEntry {
   oxycodone_last_night: boolean;
 }
 
+/** Returns class string for a question section wrapper — red border when error, invisible border otherwise */
+function sectionClass(hasError: boolean) {
+  return hasError
+    ? "rounded-xl border-2 border-red-300 bg-red-50 p-4"
+    : "rounded-xl border-2 border-transparent p-4";
+}
+
 export default function MorningScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
   const [sleepQuality,   setSleepQuality]   = useState<string | null>(null);
-  const [painLastNight,  setPainLastNight]   = useState<number | null>(null);
-  const [painNow,        setPainNow]         = useState<number | null>(null);
-  const [oxyLastNight,   setOxyLastNight]    = useState<boolean | null>(null);
-  const [saving,         setSaving]          = useState(false);
-  const [saved,          setSaved]           = useState(false);
-  const [overnightEntry, setOvernightEntry]  = useState<PainEntry | null>(null);
-  const [morningEntry,   setMorningEntry]    = useState<PainEntry | null>(null);
-  const [medEntry,       setMedEntry]        = useState<MedEntry | null>(null);
+  const [painLastNight,  setPainLastNight]  = useState<number | null>(null);
+  const [painNow,        setPainNow]        = useState<number | null>(null);
+  const [oxyLastNight,   setOxyLastNight]   = useState<boolean | null>(null);
+  const [saving,         setSaving]         = useState(false);
+  const [saved,          setSaved]          = useState(false);
+  const [showErrors,     setShowErrors]     = useState(false);
+  const [overnightEntry, setOvernightEntry] = useState<PainEntry | null>(null);
+  const [morningEntry,   setMorningEntry]   = useState<PainEntry | null>(null);
+  const [medEntry,       setMedEntry]       = useState<MedEntry | null>(null);
 
   useEffect(() => { loadEntries(); }, [date]);
 
@@ -63,10 +71,11 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
   }
 
   async function handleSave() {
-    if (!sleepQuality || painLastNight === null || painNow === null || oxyLastNight === null) return;
+    const canSave = sleepQuality !== null && painLastNight !== null && painNow !== null && oxyLastNight !== null;
+    if (!canSave) { setShowErrors(true); return; }
+
     setSaving(true);
 
-    // Save overnight pain entry
     if (overnightEntry) {
       await supabase.from("pain_entries")
         .update({ sleep_quality: sleepQuality, pain_level: painLastNight })
@@ -79,7 +88,6 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
       if (data) setOvernightEntry(data);
     }
 
-    // Save morning pain entry
     if (morningEntry) {
       await supabase.from("pain_entries").update({ pain_level: painNow }).eq("id", morningEntry.id);
     } else {
@@ -89,7 +97,6 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
       if (data) setMorningEntry(data);
     }
 
-    // Save oxycodone_last_night — update only that column to avoid overwriting bedtime's field
     if (medEntry) {
       await supabase.from("medication_entries")
         .update({ oxycodone_last_night: oxyLastNight })
@@ -103,34 +110,31 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
 
     setSaving(false);
     setSaved(true);
+    setShowErrors(false);
     onSaved();
   }
 
   const canSave = sleepQuality !== null && painLastNight !== null && painNow !== null && oxyLastNight !== null;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-4">
 
-      {/* Sleep quality */}
-      <div>
+      <div className={sectionClass(showErrors && !sleepQuality)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How did you sleep last night?</h2>
         <SleepRating value={sleepQuality} onChange={(v) => { setSleepQuality(v); setSaved(false); }} />
       </div>
 
-      {/* Pain last night */}
-      <div>
+      <div className={sectionClass(showErrors && painLastNight === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How was your level of pain last night?</h2>
         <PainRow value={painLastNight} onChange={(v) => { setPainLastNight(v); setSaved(false); }} />
       </div>
 
-      {/* Pain now */}
-      <div>
+      <div className={sectionClass(showErrors && painNow === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How is your level of pain now?</h2>
         <PainRow value={painNow} onChange={(v) => { setPainNow(v); setSaved(false); }} />
       </div>
 
-      {/* Oxycodone last night */}
-      <div>
+      <div className={sectionClass(showErrors && oxyLastNight === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Did you take oxycodone last night?</h2>
         <div className="flex gap-3">
           {([true, false] as const).map((val) => (
@@ -148,17 +152,21 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
         </div>
       </div>
 
-      {/* Save */}
       <button
         onClick={handleSave}
-        disabled={!canSave || saving}
+        disabled={saving}
         className={`w-full py-4 rounded-xl text-lg font-bold transition-all ${
-          saved        ? "bg-green-500 text-white" :
-          canSave      ? "bg-blue-500 text-white active:bg-blue-600" :
-                         "bg-gray-200 text-gray-400"
+          saved                      ? "bg-green-500 text-white" :
+          saving                     ? "bg-blue-300 text-white"  :
+          showErrors && !canSave     ? "bg-red-500 text-white"   :
+          canSave                    ? "bg-blue-500 text-white active:bg-blue-600" :
+                                       "bg-gray-200 text-gray-400"
         }`}
       >
-        {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+        {saving            ? "Saving…" :
+         saved             ? "Saved ✓" :
+         showErrors && !canSave ? "Please answer all the questions" :
+                            "Save"}
       </button>
     </div>
   );
@@ -170,8 +178,7 @@ function SleepRating({ value, onChange }: { value: string | null; onChange: (v: 
     <div>
       <div className="flex gap-1.5">
         {SLEEP_VALUES.map((opt, i) => (
-          <button key={opt}
-            onClick={() => onChange(opt)}
+          <button key={opt} onClick={() => onChange(opt)}
             className={`flex-1 h-12 rounded-lg text-base font-bold transition-all ${
               selectedIndex === i
                 ? SLEEP_COLORS[opt]

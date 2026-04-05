@@ -11,14 +11,16 @@ interface Props {
 }
 
 export default function PainScreen({ date, promptType, onSaved }: Props) {
-  const [painLevel, setPainLevel] = useState<number | null>(null);
-  const [saving,    setSaving]    = useState(false);
-  const [saved,     setSaved]     = useState(false);
-  const [entryId,   setEntryId]   = useState<string | null>(null);
+  const [painLevel,  setPainLevel]  = useState<number | null>(null);
+  const [saving,     setSaving]     = useState(false);
+  const [saved,      setSaved]      = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const [entryId,    setEntryId]    = useState<string | null>(null);
 
   useEffect(() => {
     setPainLevel(null);
     setSaved(false);
+    setShowErrors(false);
     setEntryId(null);
     loadEntry();
   }, [date, promptType]);
@@ -37,7 +39,7 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
   }
 
   async function handleSave() {
-    if (painLevel === null) return;
+    if (painLevel === null) { setShowErrors(true); return; }
     setSaving(true);
 
     if (entryId) {
@@ -51,12 +53,15 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
 
     setSaving(false);
     setSaved(true);
+    setShowErrors(false);
     onSaved();
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
+    <div className="flex flex-col gap-4">
+      <div className={`rounded-xl border-2 p-4 transition-colors ${
+        showErrors && painLevel === null ? "border-red-300 bg-red-50" : "border-transparent"
+      }`}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           How is your level of pain now?
         </h2>
@@ -65,14 +70,19 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
 
       <button
         onClick={handleSave}
-        disabled={painLevel === null || saving}
+        disabled={saving}
         className={`w-full py-4 rounded-xl text-lg font-bold transition-all ${
-          saved             ? "bg-green-500 text-white" :
-          painLevel !== null ? "bg-blue-500 text-white active:bg-blue-600" :
-                              "bg-gray-200 text-gray-400"
+          saved                           ? "bg-green-500 text-white" :
+          saving                          ? "bg-blue-300 text-white"  :
+          showErrors && painLevel === null ? "bg-red-500 text-white"   :
+          painLevel !== null              ? "bg-blue-500 text-white active:bg-blue-600" :
+                                            "bg-gray-200 text-gray-400"
         }`}
       >
-        {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+        {saving                          ? "Saving…" :
+         saved                           ? "Saved ✓" :
+         showErrors && painLevel === null ? "Please answer all the questions" :
+                                           "Save"}
       </button>
     </div>
   );
