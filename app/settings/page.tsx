@@ -6,9 +6,9 @@ import Link from "next/link";
 
 interface NotificationSettings {
   morning_time: string;
-  midday_time: string;
   afternoon_time: string;
   evening_time: string;
+  bedtime_time: string;
   timezone: string;
   push_subscription: unknown;
 }
@@ -98,9 +98,9 @@ export default function SettingsPage() {
       .from("notification_settings")
       .update({
         morning_time: settings.morning_time,
-        midday_time: settings.midday_time,
         afternoon_time: settings.afternoon_time,
         evening_time: settings.evening_time,
+        bedtime_time: settings.bedtime_time,
         timezone: settings.timezone,
         updated_at: new Date().toISOString(),
       })
@@ -123,7 +123,7 @@ export default function SettingsPage() {
   if (!settings) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading settings...</p>
+        <p className="text-gray-500">Loading settings…</p>
       </div>
     );
   }
@@ -141,14 +141,12 @@ export default function SettingsPage() {
       <main className="max-w-lg mx-auto px-4 py-6 space-y-8">
         {/* Notification Times */}
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-gray-900">
-            Notification Times
-          </h2>
+          <h2 className="text-lg font-bold text-gray-900">Notification Times</h2>
           {[
-            { label: "Morning", field: "morning_time" as const },
-            { label: "Midday", field: "midday_time" as const },
-            { label: "Afternoon", field: "afternoon_time" as const },
-            { label: "Evening", field: "evening_time" as const },
+            { label: "🌅 Morning",   field: "morning_time"   as const },
+            { label: "☀️ Afternoon", field: "afternoon_time" as const },
+            { label: "🌤️ Evening",  field: "evening_time"   as const },
+            { label: "🌙 Bedtime",  field: "bedtime_time"   as const },
           ].map(({ label, field }) => (
             <div
               key={field}
@@ -169,20 +167,16 @@ export default function SettingsPage() {
             disabled={saving}
             className="w-full h-12 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Times"}
+            {saving ? "Saving…" : "Save Times"}
           </button>
         </section>
 
         {/* Push Notifications */}
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-gray-900">
-            Push Notifications
-          </h2>
+          <h2 className="text-lg font-bold text-gray-900">Push Notifications</h2>
           <div className="bg-white rounded-lg p-4 border border-gray-200">
             {pushStatus === "enabled" && (
-              <p className="text-green-600 font-medium">
-                Notifications enabled &#10003;
-              </p>
+              <p className="text-green-600 font-medium">Notifications enabled ✓</p>
             )}
             {pushStatus === "prompt" && (
               <button
@@ -194,14 +188,12 @@ export default function SettingsPage() {
             )}
             {pushStatus === "denied" && (
               <p className="text-red-600 text-sm">
-                Notifications blocked. Please enable them in your browser/device
-                settings.
+                Notifications blocked. Please enable them in your device settings.
               </p>
             )}
             {pushStatus === "unsupported" && (
               <p className="text-gray-500 text-sm">
-                Push notifications are not supported on this device. On iPad,
-                add this app to your Home Screen first.
+                Push notifications require adding this app to your iPad Home Screen first.
               </p>
             )}
           </div>
@@ -209,9 +201,7 @@ export default function SettingsPage() {
 
         {/* Custom Activities */}
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-gray-900">
-            Activity Categories
-          </h2>
+          <h2 className="text-lg font-bold text-gray-900">Activity Categories</h2>
           {categories.map((cat) => (
             <div
               key={cat.id}
@@ -219,9 +209,7 @@ export default function SettingsPage() {
             >
               <div>
                 <span className="font-medium text-gray-900">{cat.name}</span>
-                <span className="text-xs text-gray-400 ml-2">
-                  {cat.sub_prompt_type}
-                </span>
+                <span className="text-xs text-gray-400 ml-2">{cat.sub_prompt_type}</span>
               </div>
               {!cat.is_builtin && (
                 <button
@@ -234,7 +222,7 @@ export default function SettingsPage() {
             </div>
           ))}
           <p className="text-sm text-gray-500">
-            Add custom activities from the main dashboard.
+            Add custom activities from the main dashboard (bedtime screen).
           </p>
         </section>
       </main>

@@ -1,9 +1,15 @@
--- Pain entries (4 per day)
+-- Pain entries
+-- prompt_type: overnight = "how was pain last night" (morning screen)
+--              morning   = "how is pain now" (morning screen)
+--              afternoon = screen 2
+--              evening   = screen 3
+--              bedtime   = screen 4
+-- sleep_quality: text, only set on 'overnight' entries
 CREATE TABLE pain_entries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  prompt_type text NOT NULL CHECK (prompt_type IN ('morning','midday','afternoon','evening')),
+  prompt_type text NOT NULL CHECK (prompt_type IN ('overnight','morning','afternoon','evening','bedtime')),
   pain_level int NOT NULL CHECK (pain_level BETWEEN 1 AND 10),
-  sleep_quality int CHECK (sleep_quality BETWEEN 1 AND 10),
+  sleep_quality text CHECK (sleep_quality IN ('terrible','poor','fair','good','fantastic')),
   entry_date date NOT NULL DEFAULT CURRENT_DATE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -47,7 +53,7 @@ CREATE TABLE pt_entries (
 CREATE TABLE medication_entries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_date date NOT NULL DEFAULT CURRENT_DATE UNIQUE,
-  oxycodone text NOT NULL CHECK (oxycodone IN ('no','afternoon','night')),
+  oxycodone text NOT NULL CHECK (oxycodone IN ('last_night','this_afternoon','no')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -55,9 +61,9 @@ CREATE TABLE medication_entries (
 CREATE TABLE notification_settings (
   id int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   morning_time time NOT NULL DEFAULT '09:00',
-  midday_time time NOT NULL DEFAULT '13:00',
-  afternoon_time time NOT NULL DEFAULT '17:00',
-  evening_time time NOT NULL DEFAULT '21:00',
+  afternoon_time time NOT NULL DEFAULT '13:00',
+  evening_time time NOT NULL DEFAULT '17:00',
+  bedtime_time time NOT NULL DEFAULT '21:00',
   timezone text NOT NULL DEFAULT 'Europe/London',
   push_subscription jsonb,
   updated_at timestamptz NOT NULL DEFAULT now()

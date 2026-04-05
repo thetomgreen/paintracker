@@ -1,100 +1,80 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import PainPromptCard from "@/components/PainPromptCard";
-import ActivityLog from "@/components/ActivityLog";
-import PtEntry from "@/components/PtEntry";
-import MedicationEntry from "@/components/MedicationEntry";
+import { useState } from "react";
 import Link from "next/link";
+import MorningScreen from "@/components/screens/MorningScreen";
+import PainScreen from "@/components/screens/PainScreen";
+import BedtimeScreen from "@/components/screens/BedtimeScreen";
 
-const PROMPT_TYPES = ["morning", "midday", "afternoon", "evening"] as const;
+type ScreenType = "morning" | "afternoon" | "evening" | "bedtime";
 
-interface PainEntry {
-  id: string;
-  prompt_type: string;
-  pain_level: number;
-  sleep_quality: number | null;
-  entry_date: string;
+const SCREEN_CONFIG: Record<ScreenType, { label: string; emoji: string; timeHint: string }> = {
+  morning:   { label: "Morning",   emoji: "🌅", timeHint: "9:00 am" },
+  afternoon: { label: "Afternoon", emoji: "☀️",  timeHint: "1:00 pm" },
+  evening:   { label: "Evening",   emoji: "🌤️", timeHint: "5:00 pm" },
+  bedtime:   { label: "Bedtime",   emoji: "🌙", timeHint: "9:00 pm" },
+};
+
+function getCurrentScreen(): ScreenType {
+  const hour = new Date().getHours();
+  if (hour >= 5  && hour < 12) return "morning";
+  if (hour >= 12 && hour < 16) return "afternoon";
+  if (hour >= 16 && hour < 20) return "evening";
+  return "bedtime";
 }
 
 export default function Home() {
   const today = new Date().toISOString().split("T")[0];
+  const [screen, setScreen] = useState<ScreenType>(getCurrentScreen());
 
-  const [painEntries, setPainEntries] = useState<Record<string, PainEntry>>({});
-
-  const loadPainEntries = useCallback(async () => {
-    const { data } = await supabase
-      .from("pain_entries")
-      .select("*")
-      .eq("entry_date", today);
-
-    const map: Record<string, PainEntry> = {};
-    for (const entry of data || []) {
-      map[entry.prompt_type] = entry;
-    }
-    setPainEntries(map);
-  }, [today]);
-
-  useEffect(() => {
-    loadPainEntries();
-  }, [loadPainEntries]);
+  const config = SCREEN_CONFIG[screen];
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">Pain Tracker</h1>
-        <div className="flex gap-3">
-          <Link
-            href="/history"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800"
-          >
-            History
-          </Link>
-          <Link
-            href="/settings"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800"
-          >
-            Settings
-          </Link>
+        <div>
+          <span className="text-2xl">{config.emoji}</span>
+          <span className="ml-2 text-xl font-bold text-gray-900">{config.label}</span>
+        </div>
+        <div className="flex gap-4">
+          <Link href="/history" className="text-sm font-medium text-blue-600">History</Link>
+          <Link href="/settings" className="text-sm font-medium text-blue-600">Settings</Link>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Pain Levels
-          </h2>
-          {PROMPT_TYPES.map((type) => (
-            <PainPromptCard
-              key={type}
-              promptType={type}
-              existingEntry={painEntries[type] || null}
-              onSaved={loadPainEntries}
-            />
-          ))}
-        </section>
-
-        <hr className="border-gray-200" />
-
-        <section>
-          <ActivityLog date={today} />
-        </section>
-
-        <hr className="border-gray-200" />
-
-        <section>
-          <PtEntry date={today} />
-        </section>
-
-        <hr className="border-gray-200" />
-
-        <section>
-          <MedicationEntry date={today} />
-        </section>
-
-        <div className="h-8" />
+      {/* Screen content */}
+      <main className="max-w-lg mx-auto px-4 py-8">
+        {screen === "morning"   && <MorningScreen date={today} />}
+        {screen === "afternoon" && <PainScreen date={today} promptType="afternoon" />}
+        {screen === "evening"   && <PainScreen date={today} promptType="evening" />}
+        {screen === "bedtime"   && <BedtimeScreen date={today} />}
       </main>
+
+      {/* Dev screen switcher — remove before going live */}
+      <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 py-2">
+        <p className="text-center text-xs text-yellow-700 font-medium mb-2 uppercase tracking-wide">
+          Test mode — tap to switch screen
+        </p>
+        <div className="flex gap-2 max-w-lg mx-auto">
+          {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setScreen(s)}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+                screen === s
+                  ? "bg-yellow-400 text-yellow-900"
+                  : "bg-white text-gray-600 border border-gray-300"
+              }`}
+            >
+              {SCREEN_CONFIG[s].emoji} {SCREEN_CONFIG[s].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Padding so content isn't hidden behind the dev bar */}
+      <div className="h-24" />
     </div>
   );
 }

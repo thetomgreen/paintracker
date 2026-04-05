@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-const OPTIONS = ["no", "afternoon", "night"] as const;
+const OPTIONS = [
+  { value: "last_night",    label: "Last night" },
+  { value: "this_afternoon", label: "This afternoon" },
+  { value: "no",            label: "No" },
+] as const;
 
 export default function MedicationEntry({ date }: { date: string }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -57,18 +61,18 @@ export default function MedicationEntry({ date }: { date: string }) {
         Did you take oxycodone today?
       </h2>
       <div className="flex gap-2">
-        {OPTIONS.map((opt) => (
+        {OPTIONS.map(({ value, label }) => (
           <button
-            key={opt}
-            onClick={() => handleSelect(opt)}
+            key={value}
+            onClick={() => handleSelect(value)}
             disabled={saving}
-            className={`flex-1 py-3 rounded-lg font-medium capitalize transition-colors ${
-              selected === opt
+            className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
+              selected === value
                 ? "bg-green-500 text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            {opt}
+            {label}
           </button>
         ))}
       </div>
