@@ -183,8 +183,8 @@ function SleepRating({ value, onChange }: { value: string | null; onChange: (v: 
         ))}
       </div>
       <div className="flex justify-between mt-2 px-0.5">
-        <span className="text-sm text-gray-500">Terrible</span>
-        <span className="text-sm text-gray-500">Fantastic</span>
+        <span className="text-base font-medium text-gray-500">Terrible</span>
+        <span className="text-base font-medium text-gray-500">Fantastic</span>
       </div>
     </div>
   );
