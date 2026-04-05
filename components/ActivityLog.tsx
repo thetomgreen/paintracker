@@ -120,7 +120,7 @@ export default function ActivityLog({ date, saveCounter }: Props) {
     const maxSort = categories.reduce((max, c) => Math.max(max, c.sort_order), 0);
     const subLabel =
       customSubType === "boolean"   ? "Yes?" :
-      customSubType === "distance"  ? "How far? (km)" :
+      customSubType === "distance"  ? "How far? (miles)" :
       customSubType === "intensity" ? "Intensity level" : null;
 
     const { data: newCat } = await supabase.from("activity_categories").insert({
@@ -181,7 +181,7 @@ export default function ActivityLog({ date, saveCounter }: Props) {
                 )}
                 {cat.sub_prompt_type === "distance" && (
                   <input
-                    type="number" step="0.1" placeholder="km"
+                    type="number" step="0.1" placeholder="miles"
                     value={act.subValue}
                     onChange={(e) => setSubValue(cat.id, e.target.value)}
                     className="w-full p-2 border rounded-lg text-gray-900"
@@ -222,7 +222,7 @@ export default function ActivityLog({ date, saveCounter }: Props) {
           >
             <option value="none">No follow-up question</option>
             <option value="boolean">Yes/No question</option>
-            <option value="distance">Distance (km)</option>
+            <option value="distance">Distance (miles)</option>
             <option value="intensity">Intensity (light/medium/heavy)</option>
           </select>
           <div className="flex gap-2">
