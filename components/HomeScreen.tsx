@@ -138,6 +138,7 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
           <span className="ml-2 text-xl font-bold text-gray-900">{config.label}</span>
         </div>
         <div className="flex gap-4">
+          <Link href="/trends" className="text-sm font-medium text-blue-600">Trends</Link>
           <Link href="/history" className="text-sm font-medium text-blue-600">History</Link>
           <Link href="/settings" className="text-sm font-medium text-blue-600">Settings</Link>
         </div>
