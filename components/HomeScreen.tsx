@@ -54,6 +54,15 @@ function getCurrentScreen(): ScreenType {
   return "bedtime";
 }
 
+function isWithin2HoursBefore(timeStr: string): boolean {
+  const now = new Date();
+  const [h, m] = timeStr.split(":").map(Number);
+  const scheduled = new Date();
+  scheduled.setHours(h, m, 0, 0);
+  const twoHoursBefore = new Date(scheduled.getTime() - 2 * 60 * 60 * 1000);
+  return now >= twoHoursBefore;
+}
+
 function formatTime(timeStr: string): string {
   const [h, m] = timeStr.split(":").map(Number);
   const period = h >= 12 ? "pm" : "am";
@@ -142,7 +151,7 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
             <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
               {THANK_YOU_MSG[screen]}
             </p>
-            {nextInfo && (
+            {nextInfo && notifTimes[nextInfo.timeKey] && isWithin2HoursBefore(notifTimes[nextInfo.timeKey]) && (
               <button
                 onClick={() => switchScreen(nextInfo.screen)}
                 className="mt-2 px-6 py-4 bg-blue-500 text-white rounded-xl text-base font-semibold active:bg-blue-600"
