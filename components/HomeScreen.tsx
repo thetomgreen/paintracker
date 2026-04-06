@@ -177,49 +177,48 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
         )}
       </main>
 
-      {/* Dev mode toggle button — always visible when devMode, on all screens */}
+      {/* Dev bar — always anchored to bottom, toggle button always visible */}
       {devMode && (
-        <button
-          onClick={() => setDevBarOpen((o) => !o)}
-          className="fixed bottom-4 right-4 z-50 w-10 h-10 rounded-full bg-yellow-400 text-yellow-900 text-lg font-bold shadow-lg flex items-center justify-center"
-          title="Toggle dev bar"
-        >
-          {devBarOpen ? "✕" : "🛠"}
-        </button>
-      )}
-
-      {/* Dev bar */}
-      {devMode && devBarOpen && (
-        <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 py-2">
-          <p className="text-center text-xs text-yellow-700 font-medium mb-1 uppercase tracking-wide">
-            Test mode — tap to switch screen
-          </p>
-          <div className="flex gap-2 max-w-lg mx-auto">
-            {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
-              <button
-                key={s}
-                onClick={() => switchScreen(s)}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  screen === s
-                    ? "bg-yellow-400 text-yellow-900"
-                    : "bg-white text-gray-600 border border-gray-300"
-                }`}
-              >
-                {SCREEN_CONFIG[s].emoji} {SCREEN_CONFIG[s].label}
-              </button>
-            ))}
-            <button
-              onClick={handleReset}
-              disabled={resetting}
-              className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
-            >
-              {resetting ? "…" : "🗑"}
-            </button>
-          </div>
+        <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 pt-3 pb-4">
+          {devBarOpen && (
+            <>
+              <p className="text-center text-xs text-yellow-700 font-medium mb-2 uppercase tracking-wide">
+                Test mode — tap to switch screen
+              </p>
+              <div className="flex gap-2 max-w-lg mx-auto mb-3">
+                {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => switchScreen(s)}
+                    className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${
+                      screen === s
+                        ? "bg-yellow-400 text-yellow-900"
+                        : "bg-white text-gray-600 border border-gray-300"
+                    }`}
+                  >
+                    {SCREEN_CONFIG[s].emoji} {SCREEN_CONFIG[s].label}
+                  </button>
+                ))}
+                <button
+                  onClick={handleReset}
+                  disabled={resetting}
+                  className="px-3 py-3 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
+                >
+                  {resetting ? "…" : "🗑"}
+                </button>
+              </div>
+            </>
+          )}
+          <button
+            onClick={() => setDevBarOpen((o) => !o)}
+            className="w-full max-w-lg mx-auto block py-2.5 rounded-lg bg-yellow-200 text-yellow-800 text-sm font-semibold text-center"
+          >
+            {devBarOpen ? "✕  Hide test controls" : "🛠  Show test controls"}
+          </button>
         </div>
       )}
 
-      <div className={devMode && devBarOpen ? "h-24" : "h-4"} />
+      <div className={devMode ? (devBarOpen ? "h-40" : "h-16") : "h-4"} />
     </div>
   );
 }
