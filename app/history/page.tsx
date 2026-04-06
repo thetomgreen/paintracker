@@ -5,11 +5,11 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 const PROMPT_LABELS: Record<string, string> = {
-  overnight:  "Last night",
   morning:    "Morning",
   afternoon:  "Lunchtime",
   evening:    "Evening",
   bedtime:    "Bedtime",
+  night:      "Night",
 };
 
 interface DaySummary {
@@ -52,9 +52,18 @@ export default function HistoryPage() {
     }
 
     for (const entry of painRes.data || []) {
-      const day = getDay(entry.entry_date);
-      day.pain[entry.prompt_type] = entry.pain_level;
-      if (entry.sleep_quality) day.sleepQuality = entry.sleep_quality;
+      if (entry.prompt_type === "overnight") {
+        // "Last night" belongs to the previous day's record, labelled "Night"
+        const prev = new Date(entry.entry_date + "T12:00:00");
+        prev.setDate(prev.getDate() - 1);
+        const prevDate = prev.toLocaleDateString("en-CA");
+        const day = getDay(prevDate);
+        day.pain["night"] = entry.pain_level;
+        if (entry.sleep_quality) day.sleepQuality = entry.sleep_quality;
+      } else {
+        const day = getDay(entry.entry_date);
+        day.pain[entry.prompt_type] = entry.pain_level;
+      }
     }
 
     for (const entry of actRes.data || []) {
@@ -103,7 +112,7 @@ export default function HistoryPage() {
             {/* Pain levels */}
             {Object.keys(day.pain).length > 0 && (
               <div className="space-y-1">
-                {["overnight", "morning", "afternoon", "evening", "bedtime"].map((type) =>
+                {["morning", "afternoon", "evening", "bedtime", "night"].map((type) =>
                   day.pain[type] !== undefined ? (
                     <div key={type} className="flex items-center gap-2">
                       <span className="text-sm text-gray-500 w-20">{PROMPT_LABELS[type]}</span>
@@ -113,7 +122,7 @@ export default function HistoryPage() {
                         </span>
                         <span className="text-xs text-gray-400">/ 10</span>
                       </div>
-                      {type === "overnight" && day.sleepQuality && (
+                      {type === "night" && day.sleepQuality && (
                         <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full capitalize">
                           Sleep: {day.sleepQuality}
                         </span>
