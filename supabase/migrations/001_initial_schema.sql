@@ -27,7 +27,7 @@ CREATE TABLE activity_categories (
 
 INSERT INTO activity_categories (name, sub_prompt_type, sub_prompt_label, is_builtin, sort_order) VALUES
   ('Tennis', 'boolean', 'Did you serve?', true, 1),
-  ('Walking', 'distance', 'How far? (km)', true, 2),
+  ('Walking', 'distance', 'How far? (mi)', true, 2),
   ('Gardening', 'intensity', 'Intensity level', true, 3),
   ('Tidying', 'intensity', 'Intensity level', true, 4);
 

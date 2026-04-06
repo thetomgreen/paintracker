@@ -179,7 +179,7 @@ export default function ActivityLog({ date, saveCounter }: Props) {
                 )}
                 {cat.sub_prompt_type === "distance" && (
                   <input
-                    type="number" step="0.1" placeholder="miles"
+                    type="number" step="0.1" placeholder="mi"
                     value={act.subValue}
                     onChange={(e) => setSubValue(cat.id, e.target.value)}
                     className="w-full p-2 border rounded-lg text-gray-900"
