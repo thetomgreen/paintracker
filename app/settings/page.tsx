@@ -144,7 +144,7 @@ export default function SettingsPage() {
           <h2 className="text-lg font-bold text-gray-900">Notification Times</h2>
           {[
             { label: "🌅 Morning",   field: "morning_time"   as const },
-            { label: "☀️ Afternoon", field: "afternoon_time" as const },
+            { label: "☀️ Lunchtime", field: "afternoon_time" as const },
             { label: "🌤️ Evening",  field: "evening_time"   as const },
             { label: "🌙 Bedtime",  field: "bedtime_time"   as const },
           ].map(({ label, field }) => (

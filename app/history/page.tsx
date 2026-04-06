@@ -7,7 +7,7 @@ import Link from "next/link";
 const PROMPT_LABELS: Record<string, string> = {
   overnight:  "Last night",
   morning:    "Morning",
-  afternoon:  "Afternoon",
+  afternoon:  "Lunchtime",
   evening:    "Evening",
   bedtime:    "Bedtime",
 };
@@ -149,7 +149,7 @@ export default function HistoryPage() {
               )}
               {day.oxyAfternoon && (
                 <span className="px-2 py-1 bg-red-50 text-red-700 rounded">
-                  Oxy afternoon
+                  Oxy lunchtime
                 </span>
               )}
             </div>

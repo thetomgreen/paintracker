@@ -1,65 +1,120 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import MorningScreen from "@/components/screens/MorningScreen";
 import PainScreen from "@/components/screens/PainScreen";
 import BedtimeScreen from "@/components/screens/BedtimeScreen";
 
-type ScreenType = "morning" | "afternoon" | "evening" | "bedtime";
+type ScreenType = "morning" | "lunchtime" | "evening" | "bedtime";
+
+// Maps UI screen name to the prompt_type value stored in the DB
+const DB_PROMPT_TYPE: Record<ScreenType, string> = {
+  morning:   "morning",
+  lunchtime: "afternoon",
+  evening:   "evening",
+  bedtime:   "bedtime",
+};
 
 const SCREEN_CONFIG: Record<ScreenType, { label: string; emoji: string }> = {
   morning:   { label: "Morning",   emoji: "🌅" },
-  afternoon: { label: "Afternoon", emoji: "☀️"  },
+  lunchtime: { label: "Lunchtime", emoji: "☀️"  },
   evening:   { label: "Evening",   emoji: "🌤️" },
   bedtime:   { label: "Bedtime",   emoji: "🌙" },
 };
 
 const THANK_YOU_MSG: Record<ScreenType, string> = {
   morning:   "Thanks for entering your data. Don't forget to complete your exercises today.",
-  afternoon: "Thanks for entering your data. Don't forget to complete your exercises today.",
+  lunchtime: "Thanks for entering your data. Don't forget to complete your exercises today.",
   evening:   "Thanks for entering your data. Don't forget to complete your exercises today.",
   bedtime:   "Thanks, and sleep well — good night.",
 };
 
 const THANK_YOU_EMOJI: Record<ScreenType, string> = {
   morning:   "🏋️",
-  afternoon: "🏋️",
+  lunchtime: "🏋️",
   evening:   "🏋️",
   bedtime:   "🌙",
+};
+
+// For each screen, which screen comes next and which DB column holds its scheduled time
+const NEXT_SCREEN: Partial<Record<ScreenType, { screen: ScreenType; timeKey: string; label: string }>> = {
+  morning:   { screen: "lunchtime", timeKey: "afternoon_time", label: "lunchtime" },
+  lunchtime: { screen: "evening",   timeKey: "evening_time",   label: "evening"   },
+  evening:   { screen: "bedtime",   timeKey: "bedtime_time",   label: "bedtime"   },
+  // bedtime has no next screen
 };
 
 function getCurrentScreen(): ScreenType {
   const hour = new Date().getHours();
   if (hour >= 5  && hour < 12) return "morning";
-  if (hour >= 12 && hour < 16) return "afternoon";
+  if (hour >= 12 && hour < 16) return "lunchtime";
   if (hour >= 16 && hour < 20) return "evening";
   return "bedtime";
 }
 
+function formatTime(timeStr: string): string {
+  const [h, m] = timeStr.split(":").map(Number);
+  const period = h >= 12 ? "pm" : "am";
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour}${period}` : `${hour}:${String(m).padStart(2, "0")}${period}`;
+}
+
 export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
-  const [screen,    setScreen]    = useState<ScreenType>(getCurrentScreen());
-  const [thankYou,  setThankYou]  = useState(false);
-  const [resetKey,  setResetKey]  = useState(0);
-  const [resetting, setResetting] = useState(false);
+  const [screen,       setScreen]       = useState<ScreenType>(getCurrentScreen());
+  const [thankYou,     setThankYou]     = useState(false);
+  const [resetKey,     setResetKey]     = useState(0);
+  const [resetting,    setResetting]    = useState(false);
+  const [notifTimes,   setNotifTimes]   = useState<Record<string, string>>({});
+  const [checking,     setChecking]     = useState(true); // avoids flash of form before DB check
 
-  const config = SCREEN_CONFIG[screen];
+  // Load notification times once (for button labels)
+  useEffect(() => {
+    async function loadTimes() {
+      if (!supabase) return;
+      const { data } = await supabase.from("notification_settings").select("*").maybeSingle();
+      if (data) setNotifTimes(data);
+    }
+    loadTimes();
+  }, []);
+
+  // When screen changes, check if data already entered → skip straight to thank-you
+  useEffect(() => {
+    async function checkAlreadyDone() {
+      setChecking(true);
+      setThankYou(false);
+      if (!supabase) { setChecking(false); return; }
+      const { data } = await supabase
+        .from("pain_entries")
+        .select("id")
+        .eq("entry_date", today)
+        .eq("prompt_type", DB_PROMPT_TYPE[screen])
+        .maybeSingle();
+      if (data) setThankYou(true);
+      setChecking(false);
+    }
+    checkAlreadyDone();
+  }, [screen, today]);
+
+  const config   = SCREEN_CONFIG[screen];
+  const nextInfo = NEXT_SCREEN[screen];
 
   function switchScreen(s: ScreenType) {
     setScreen(s);
-    setThankYou(false);
   }
 
   async function handleReset() {
     setResetting(true);
-    await Promise.all([
-      supabase.from("pain_entries").delete().eq("entry_date", today),
-      supabase.from("activity_entries").delete().eq("entry_date", today),
-      supabase.from("pt_entries").delete().eq("entry_date", today),
-      supabase.from("medication_entries").delete().eq("entry_date", today),
-    ]);
+    if (supabase) {
+      await Promise.all([
+        supabase.from("pain_entries").delete().eq("entry_date", today),
+        supabase.from("activity_entries").delete().eq("entry_date", today),
+        supabase.from("pt_entries").delete().eq("entry_date", today),
+        supabase.from("medication_entries").delete().eq("entry_date", today),
+      ]);
+    }
     setThankYou(false);
     setResetKey((k) => k + 1);
     setResetting(false);
@@ -79,19 +134,32 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
         </div>
       </header>
 
-      {/* Screen content */}
+      {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-8">
-        {thankYou ? (
+        {checking ? null : thankYou ? (
           <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
             <span className="text-6xl">{THANK_YOU_EMOJI[screen]}</span>
             <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
               {THANK_YOU_MSG[screen]}
             </p>
+            {nextInfo && (
+              <button
+                onClick={() => switchScreen(nextInfo.screen)}
+                className="mt-2 px-6 py-4 bg-blue-500 text-white rounded-xl text-base font-semibold active:bg-blue-600"
+              >
+                Enter {nextInfo.label} data now
+                {notifTimes[nextInfo.timeKey] && (
+                  <span className="block text-sm font-normal opacity-80 mt-0.5">
+                    scheduled for {formatTime(notifTimes[nextInfo.timeKey])}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <>
             {screen === "morning"   && <MorningScreen key={resetKey} date={today} onSaved={() => setThankYou(true)} />}
-            {screen === "afternoon" && <PainScreen    key={resetKey} date={today} promptType="afternoon" onSaved={() => setThankYou(true)} />}
+            {screen === "lunchtime" && <PainScreen    key={resetKey} date={today} promptType="afternoon" onSaved={() => setThankYou(true)} />}
             {screen === "evening"   && <PainScreen    key={resetKey} date={today} promptType="evening"   onSaved={() => setThankYou(true)} />}
             {screen === "bedtime"   && <BedtimeScreen key={resetKey} date={today} onSaved={() => setThankYou(true)} />}
           </>
