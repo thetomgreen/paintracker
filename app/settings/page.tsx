@@ -174,9 +174,29 @@ export default function SettingsPage() {
         {/* Push Notifications */}
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-gray-900">Push Notifications</h2>
-          <div className="bg-white rounded-lg p-4 border border-gray-200">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 space-y-3">
             {pushStatus === "enabled" && (
-              <p className="text-green-600 font-medium">Notifications enabled ✓</p>
+              <>
+                <p className="text-green-600 font-medium">Notifications enabled ✓</p>
+                <button
+                  onClick={async () => {
+                    const reg = await navigator.serviceWorker.ready;
+                    reg.showNotification("Pain Tracker", {
+                      body: "Test notification — if you see this, notifications are working ✓",
+                      icon: "/icon-192.png",
+                    });
+                  }}
+                  className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm"
+                >
+                  Send test notification
+                </button>
+                <button
+                  onClick={enableNotifications}
+                  className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm"
+                >
+                  Re-register subscription
+                </button>
+              </>
             )}
             {pushStatus === "prompt" && (
               <button
