@@ -33,7 +33,7 @@ export default function HistoryPage() {
   async function loadHistory() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const fromDate = thirtyDaysAgo.toISOString().split("T")[0];
+    const fromDate = thirtyDaysAgo.toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
 
     const [painRes, actRes, ptRes, medRes] = await Promise.all([
       supabase.from("pain_entries").select("*").gte("entry_date", fromDate).order("entry_date", { ascending: false }),

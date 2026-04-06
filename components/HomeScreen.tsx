@@ -39,7 +39,7 @@ function getCurrentScreen(): ScreenType {
 }
 
 export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
   const [screen,    setScreen]    = useState<ScreenType>(getCurrentScreen());
   const [thankYou,  setThankYou]  = useState(false);
   const [resetKey,  setResetKey]  = useState(0);

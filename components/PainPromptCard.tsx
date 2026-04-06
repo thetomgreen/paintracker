@@ -50,7 +50,7 @@ export default function PainPromptCard({
     if (isMorning && sleepQuality === null) return;
 
     setSaving(true);
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
 
     if (existingEntry) {
       await supabase
