@@ -101,7 +101,7 @@ export default function SettingsPage() {
         afternoon_time: settings.afternoon_time,
         evening_time: settings.evening_time,
         bedtime_time: settings.bedtime_time,
-        timezone: settings.timezone,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at: new Date().toISOString(),
       })
       .eq("id", 1);
