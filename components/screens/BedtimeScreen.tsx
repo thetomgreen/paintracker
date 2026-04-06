@@ -26,9 +26,15 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
   const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
   const [showErrors,   setShowErrors]   = useState(false);
-  const [saveCounter,  setSaveCounter]  = useState(0);
+  const [saveCounter,    setSaveCounter]    = useState(0);
+  const [triggerComplete, setTriggerComplete] = useState(false);
 
   const canSave = painLevel !== null && ptValue !== null && oxyAfternoon !== null;
+
+  // Called via effect (not directly) so child saveCounter effects fire first
+  useEffect(() => {
+    if (triggerComplete) onSaved();
+  }, [triggerComplete]);
 
   useEffect(() => { loadEntries(); }, [date]);
 
@@ -82,7 +88,7 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
     setSaving(false);
     setSaved(true);
     setShowErrors(false);
-    onSaved();
+    setTriggerComplete(true);
   }
 
   return (
