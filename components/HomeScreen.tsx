@@ -78,6 +78,7 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
   const [resetting,    setResetting]    = useState(false);
   const [notifTimes,   setNotifTimes]   = useState<Record<string, string>>({});
   const [checking,     setChecking]     = useState(true); // avoids flash of form before DB check
+  const [devBarOpen,   setDevBarOpen]   = useState(true);
 
   // Load notification times once (for button labels)
   useEffect(() => {
@@ -176,8 +177,19 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
         )}
       </main>
 
-      {/* Dev bar — only shown in dev mode */}
+      {/* Dev mode toggle button — always visible when devMode, on all screens */}
       {devMode && (
+        <button
+          onClick={() => setDevBarOpen((o) => !o)}
+          className="fixed bottom-4 right-4 z-50 w-10 h-10 rounded-full bg-yellow-400 text-yellow-900 text-lg font-bold shadow-lg flex items-center justify-center"
+          title="Toggle dev bar"
+        >
+          {devBarOpen ? "✕" : "🛠"}
+        </button>
+      )}
+
+      {/* Dev bar */}
+      {devMode && devBarOpen && (
         <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 py-2">
           <p className="text-center text-xs text-yellow-700 font-medium mb-1 uppercase tracking-wide">
             Test mode — tap to switch screen
@@ -207,7 +219,7 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
         </div>
       )}
 
-      <div className={devMode ? "h-24" : "h-4"} />
+      <div className={devMode && devBarOpen ? "h-24" : "h-4"} />
     </div>
   );
 }
