@@ -25,13 +25,17 @@ const PROMPTS: { field: keyof NotificationSettings; type: string; body: string }
 ];
 
 Deno.serve(async (req) => {
+  const url = new URL(req.url);
+  const isDev = url.searchParams.get("env") === "dev";
+  const tableName = isDev ? "dev_notification_settings" : "notification_settings";
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
   const { data: settings, error } = await supabase
-    .from("notification_settings")
+    .from(tableName)
     .select("*")
     .eq("id", 1)
     .single();
@@ -76,7 +80,7 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ ok: true, currentTime: timeInTz, matched }),
+    JSON.stringify({ ok: true, currentTime: timeInTz, matched, env: isDev ? "dev" : "prod" }),
     { headers: { "Content-Type": "application/json" } }
   );
 });
@@ -88,9 +92,16 @@ async function sendPush(
   const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY")!;
   const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY")!;
 
+  console.log("sendPush: endpoint =", subscription.endpoint.slice(0, 60) + "...");
+
   const { default: webpush } = await import("https://esm.sh/web-push@3.6.7");
 
   webpush.setVapidDetails(VAPID_SUBJECT, vapidPublicKey, vapidPrivateKey);
 
-  await webpush.sendNotification(subscription, JSON.stringify(payload));
+  try {
+    const result = await webpush.sendNotification(subscription, JSON.stringify(payload));
+    console.log("sendPush: success, status =", result?.statusCode ?? result?.status ?? "unknown");
+  } catch (err: any) {
+    console.error("sendPush: error", err?.statusCode, err?.body ?? err?.message ?? err);
+  }
 }
