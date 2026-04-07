@@ -17,17 +17,18 @@ interface NotificationSettings {
   } | null;
 }
 
-const PROMPTS: { field: keyof NotificationSettings; type: string; body: string }[] = [
-  { field: "morning_time",   type: "morning",   body: "Time for your morning check-in 🌅" },
-  { field: "afternoon_time", type: "lunchtime", body: "Time for your lunchtime check-in ☀️" },
-  { field: "evening_time",   type: "evening",   body: "Time for your evening check-in 🌤️" },
-  { field: "bedtime_time",   type: "bedtime",   body: "Time for your bedtime check-in 🌙" },
+const PROMPTS: { field: keyof NotificationSettings; type: string; dbType: string; body: string }[] = [
+  { field: "morning_time",   type: "morning",   dbType: "morning",   body: "Time for your morning check-in 🌅" },
+  { field: "afternoon_time", type: "lunchtime", dbType: "afternoon", body: "Time for your lunchtime check-in ☀️" },
+  { field: "evening_time",   type: "evening",   dbType: "evening",   body: "Time for your evening check-in 🌤️" },
+  { field: "bedtime_time",   type: "bedtime",   dbType: "bedtime",   body: "Time for your bedtime check-in 🌙" },
 ];
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const isDev = url.searchParams.get("env") === "dev";
-  const tableName = isDev ? "dev_notification_settings" : "notification_settings";
+  const settingsTable  = isDev ? "dev_notification_settings" : "notification_settings";
+  const entriesTable   = isDev ? "dev_pain_entries"          : "pain_entries";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -35,7 +36,7 @@ Deno.serve(async (req) => {
   );
 
   const { data: settings, error } = await supabase
-    .from(tableName)
+    .from(settingsTable)
     .select("*")
     .eq("id", 1)
     .single();
@@ -53,34 +54,50 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Get current time in user's timezone
+  // Get current time and date in user's timezone
   const now = new Date();
+  const tz = settings.timezone || "Europe/London";
   const timeInTz = now.toLocaleTimeString("en-GB", {
-    timeZone: settings.timezone || "Europe/London",
+    timeZone: tz,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
+  const todayInTz = now.toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
 
   const matched: string[] = [];
+  const skipped: string[] = [];
 
   // Check each prompt time
   for (const prompt of PROMPTS) {
     const raw = settings[prompt.field] as string | undefined;
     if (!raw) continue;
     const scheduledTime = raw.slice(0, 5); // "HH:MM"
-    if (timeInTz === scheduledTime) {
-      await sendPush(settings.push_subscription, {
-        title: "Pain Tracker",
-        body: prompt.body,
-        prompt: prompt.type,
-      });
-      matched.push(prompt.type);
+    if (timeInTz !== scheduledTime) continue;
+
+    // Time matches — check if data already entered for this period today
+    const { data: existing } = await supabase
+      .from(entriesTable)
+      .select("id")
+      .eq("entry_date", todayInTz)
+      .eq("prompt_type", prompt.dbType)
+      .maybeSingle();
+
+    if (existing) {
+      skipped.push(prompt.type);
+      continue;
     }
+
+    await sendPush(settings.push_subscription, {
+      title: "Pain Tracker",
+      body: prompt.body,
+      prompt: prompt.type,
+    });
+    matched.push(prompt.type);
   }
 
   return new Response(
-    JSON.stringify({ ok: true, currentTime: timeInTz, matched, env: isDev ? "dev" : "prod" }),
+    JSON.stringify({ ok: true, currentTime: timeInTz, matched, skipped, env: isDev ? "dev" : "prod" }),
     { headers: { "Content-Type": "application/json" } }
   );
 });
