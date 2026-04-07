@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import MorningScreen from "@/components/screens/MorningScreen";
@@ -70,15 +70,16 @@ function formatTime(timeStr: string): string {
   return m === 0 ? `${hour}${period}` : `${hour}:${String(m).padStart(2, "0")}${period}`;
 }
 
-export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
+export default function HomeScreen({ devMode = false, promptParam }: { devMode?: boolean; promptParam?: string }) {
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
-  const [screen,       setScreen]       = useState<ScreenType>(getCurrentScreen());
+  const initialScreen = (promptParam && promptParam in SCREEN_CONFIG) ? promptParam as ScreenType : getCurrentScreen();
+  const [screen,       setScreen]       = useState<ScreenType>(initialScreen);
   const [thankYou,     setThankYou]     = useState(false);
+  const skipAlreadyDoneCheck = useRef(!!promptParam && promptParam in SCREEN_CONFIG);
   const [resetKey,     setResetKey]     = useState(0);
   const [resetting,    setResetting]    = useState(false);
   const [notifTimes,   setNotifTimes]   = useState<Record<string, string>>({});
   const [checking,     setChecking]     = useState(true); // avoids flash of form before DB check
-  const [devBarOpen,   setDevBarOpen]   = useState(true);
 
   // Load notification times once (for button labels)
   useEffect(() => {
@@ -91,11 +92,17 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
   }, []);
 
   // When screen changes, check if data already entered → skip straight to thank-you
+  // Exception: if launched from a notification tap, show the form directly regardless
   useEffect(() => {
     async function checkAlreadyDone() {
       setChecking(true);
       setThankYou(false);
       if (!supabase) { setChecking(false); return; }
+      if (skipAlreadyDoneCheck.current) {
+        skipAlreadyDoneCheck.current = false;
+        setChecking(false);
+        return;
+      }
       const { data } = await supabase
         .from("pain_entries")
         .select("id")
@@ -177,48 +184,38 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
         )}
       </main>
 
-      {/* Dev bar — always anchored to bottom, toggle button always visible */}
+      {/* Dev bar — only shown in dev mode */}
       {devMode && (
-        <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 pt-3 pb-4">
-          {devBarOpen && (
-            <>
-              <p className="text-center text-xs text-yellow-700 font-medium mb-2 uppercase tracking-wide">
-                Test mode — tap to switch screen
-              </p>
-              <div className="flex gap-2 max-w-lg mx-auto mb-3">
-                {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => switchScreen(s)}
-                    className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-all ${
-                      screen === s
-                        ? "bg-yellow-400 text-yellow-900"
-                        : "bg-white text-gray-600 border border-gray-300"
-                    }`}
-                  >
-                    {SCREEN_CONFIG[s].emoji} {SCREEN_CONFIG[s].label}
-                  </button>
-                ))}
-                <button
-                  onClick={handleReset}
-                  disabled={resetting}
-                  className="px-3 py-3 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
-                >
-                  {resetting ? "…" : "🗑"}
-                </button>
-              </div>
-            </>
-          )}
-          <button
-            onClick={() => setDevBarOpen((o) => !o)}
-            className="w-full max-w-lg mx-auto block py-2.5 rounded-lg bg-yellow-200 text-yellow-800 text-sm font-semibold text-center"
-          >
-            {devBarOpen ? "✕  Hide test controls" : "🛠  Show test controls"}
-          </button>
+        <div className="fixed bottom-0 left-0 right-0 bg-yellow-50 border-t-2 border-yellow-300 px-3 py-2">
+          <p className="text-center text-xs text-yellow-700 font-medium mb-1 uppercase tracking-wide">
+            Test mode — tap to switch screen
+          </p>
+          <div className="flex gap-2 max-w-lg mx-auto">
+            {(Object.keys(SCREEN_CONFIG) as ScreenType[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => switchScreen(s)}
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  screen === s
+                    ? "bg-yellow-400 text-yellow-900"
+                    : "bg-white text-gray-600 border border-gray-300"
+                }`}
+              >
+                {SCREEN_CONFIG[s].emoji} {SCREEN_CONFIG[s].label}
+              </button>
+            ))}
+            <button
+              onClick={handleReset}
+              disabled={resetting}
+              className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-700 border border-red-300 disabled:opacity-50"
+            >
+              {resetting ? "…" : "🗑"}
+            </button>
+          </div>
         </div>
       )}
 
-      <div className={devMode ? (devBarOpen ? "h-40" : "h-16") : "h-4"} />
+      <div className={devMode ? "h-24" : "h-4"} />
     </div>
   );
 }
