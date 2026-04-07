@@ -23,10 +23,8 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body,
     icon: "/icon-192.png",
-    badge: "/icon-192.png",
     data: { prompt: data.prompt },
     tag: "pain-tracker-" + data.prompt,
-    renotify: true,
   };
 
   event.waitUntil(self.registration.showNotification(data.title, options));
