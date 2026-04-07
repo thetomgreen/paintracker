@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import MorningScreen from "@/components/screens/MorningScreen";
@@ -70,10 +70,12 @@ function formatTime(timeStr: string): string {
   return m === 0 ? `${hour}${period}` : `${hour}:${String(m).padStart(2, "0")}${period}`;
 }
 
-export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
+export default function HomeScreen({ devMode = false, promptParam }: { devMode?: boolean; promptParam?: string }) {
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
-  const [screen,       setScreen]       = useState<ScreenType>(getCurrentScreen());
+  const initialScreen = (promptParam && promptParam in SCREEN_CONFIG) ? promptParam as ScreenType : getCurrentScreen();
+  const [screen,       setScreen]       = useState<ScreenType>(initialScreen);
   const [thankYou,     setThankYou]     = useState(false);
+  const skipAlreadyDoneCheck = useRef(!!promptParam && promptParam in SCREEN_CONFIG);
   const [resetKey,     setResetKey]     = useState(0);
   const [resetting,    setResetting]    = useState(false);
   const [notifTimes,   setNotifTimes]   = useState<Record<string, string>>({});
@@ -90,11 +92,17 @@ export default function HomeScreen({ devMode = false }: { devMode?: boolean }) {
   }, []);
 
   // When screen changes, check if data already entered → skip straight to thank-you
+  // Exception: if launched from a notification tap, show the form directly regardless
   useEffect(() => {
     async function checkAlreadyDone() {
       setChecking(true);
       setThankYou(false);
       if (!supabase) { setChecking(false); return; }
+      if (skipAlreadyDoneCheck.current) {
+        skipAlreadyDoneCheck.current = false;
+        setChecking(false);
+        return;
+      }
       const { data } = await supabase
         .from("pain_entries")
         .select("id")
