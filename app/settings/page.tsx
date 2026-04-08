@@ -25,6 +25,8 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [pushStatus, setPushStatus] = useState<string>("unknown");
+  const [testState, setTestState] = useState<"idle" | "sending" | "ok" | "error">("idle");
+  const [testMessage, setTestMessage] = useState("");
 
   useEffect(() => {
     loadSettings();
@@ -180,18 +182,40 @@ export default function SettingsPage() {
                 <p className="text-green-600 font-medium">Notifications enabled ✓</p>
                 <button
                   onClick={async () => {
-                    const reg = await navigator.serviceWorker.ready;
-                    reg.showNotification("Pain Tracker", {
-                      body: "Test notification — if you see this, notifications are working ✓",
-                      icon: "/icon-192.png",
-                    });
+                    setTestState("sending");
+                    setTestMessage("");
+                    try {
+                      const res = await fetch("/api/push/test", { method: "POST" });
+                      const json = await res.json();
+                      if (res.ok) {
+                        setTestState("ok");
+                        setTestMessage(`Push sent successfully. Timezone: ${json.timezone || "unknown"}`);
+                      } else {
+                        setTestState("error");
+                        setTestMessage(json.error || "Failed to send push");
+                      }
+                    } catch {
+                      setTestState("error");
+                      setTestMessage("Network error — could not reach server");
+                    }
                   }}
-                  className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm"
+                  disabled={testState === "sending"}
+                  className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm disabled:opacity-50"
                 >
-                  Send test notification
+                  {testState === "sending" ? "Sending…" : "Send test push notification"}
                 </button>
+                {testState === "ok" && (
+                  <p className="text-sm text-green-600">{testMessage}</p>
+                )}
+                {testState === "error" && (
+                  <p className="text-sm text-red-500">{testMessage}</p>
+                )}
                 <button
-                  onClick={enableNotifications}
+                  onClick={async () => {
+                    setTestState("idle");
+                    setTestMessage("");
+                    await enableNotifications();
+                  }}
                   className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm"
                 >
                   Re-register subscription
