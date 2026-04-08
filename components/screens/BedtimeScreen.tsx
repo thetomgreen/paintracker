@@ -150,14 +150,14 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
       <hr className="border-gray-200 mx-4" />
 
       <div className="px-4">
-        <ActivityLog date={date} saveCounter={saveCounter} />
+        <ActivityLog
+          date={date}
+          saveCounter={saveCounter}
+          preTennisChecked={tennisCheckedToday}
+          tennisNote={tennisBedtimeNote}
+          onTennisNoteChange={setTennisBedtimeNote}
+        />
       </div>
-
-      {tennisCheckedToday && (
-        <div className="px-4">
-          <NoteField label="tennis" value={tennisBedtimeNote} onChange={setTennisBedtimeNote} />
-        </div>
-      )}
 
       <hr className="border-gray-200 mx-4" />
 
