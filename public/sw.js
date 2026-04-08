@@ -1,11 +1,25 @@
 // Service Worker for Pain Tracker PWA
 
+const OFFLINE_URL = "/offline.html";
+
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open("offline-v1").then((cache) => cache.add(OFFLINE_URL))
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(clients.claim());
+});
+
+// Serve offline page for failed navigation requests
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(OFFLINE_URL))
+    );
+  }
 });
 
 // Handle push notifications
