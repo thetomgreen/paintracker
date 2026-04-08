@@ -6,5 +6,5 @@ export default async function Home({
   searchParams: Promise<{ prompt?: string }>;
 }) {
   const { prompt } = await searchParams;
-  return <HomeScreen promptParam={prompt} />;
+  return <HomeScreen devMode promptParam={prompt} />;
 }
