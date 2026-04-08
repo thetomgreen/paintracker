@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import NoteField from "@/components/NoteField";
 
 interface Category {
   id: string;
@@ -23,9 +24,15 @@ interface Props {
   date: string;
   /** Increment this from the parent to trigger a save */
   saveCounter: number;
+  /** If true, pre-check the Tennis checkbox (e.g. because a lunchtime tennis note exists) */
+  preTennisChecked?: boolean;
+  /** Current tennis note value (controlled by parent) */
+  tennisNote?: string;
+  /** Called when the tennis note changes */
+  onTennisNoteChange?: (v: string) => void;
 }
 
-export default function ActivityLog({ date, saveCounter }: Props) {
+export default function ActivityLog({ date, saveCounter, preTennisChecked, tennisNote, onTennisNoteChange }: Props) {
   const [categories,    setCategories]    = useState<Category[]>([]);
   const [entries,       setEntries]       = useState<Record<string, ActivityEntry>>({});
   const [activities,    setActivities]    = useState<Record<string, { did: boolean; subValue: string }>>({});
@@ -35,6 +42,17 @@ export default function ActivityLog({ date, saveCounter }: Props) {
   const isFirstRender = useRef(true);
 
   useEffect(() => { loadData(); }, [date]);
+
+  // Pre-check Tennis when preTennisChecked becomes true and categories are loaded
+  useEffect(() => {
+    if (!preTennisChecked) return;
+    const tennisCat = categories.find((c) => c.name === "Tennis");
+    if (!tennisCat) return;
+    setActivities((prev) => {
+      if (prev[tennisCat.id]?.did) return prev; // already checked
+      return { ...prev, [tennisCat.id]: { ...prev[tennisCat.id], did: true, subValue: prev[tennisCat.id]?.subValue || "" } };
+    });
+  }, [preTennisChecked, categories]);
 
   // Save when parent increments saveCounter (skip initial render)
   useEffect(() => {
@@ -67,11 +85,9 @@ export default function ActivityLog({ date, saveCounter }: Props) {
   }
 
   async function performSave() {
-    // Use the latest state from refs — capture via closure at call time
     setCategories((currentCats) => {
       setActivities((currentActs) => {
         setEntries((currentEntries) => {
-          // Fire-and-forget: save all categories
           (async () => {
             for (const cat of currentCats) {
               const act = currentActs[cat.id];
@@ -86,11 +102,9 @@ export default function ActivityLog({ date, saveCounter }: Props) {
               if (existing) {
                 await supabase.from("activity_entries").update(payload).eq("id", existing.id);
               } else if (act.did) {
-                // Only insert if the activity was actually done (avoid cluttering DB with false entries)
                 await supabase.from("activity_entries").insert(payload);
               }
             }
-            // Refresh entry map after save so future saves have correct IDs
             const { data } = await supabase.from("activity_entries").select("*").eq("entry_date", date);
             const newEntryMap: Record<string, ActivityEntry> = {};
             for (const entry of data || []) newEntryMap[entry.category_id] = entry;
@@ -118,8 +132,7 @@ export default function ActivityLog({ date, saveCounter }: Props) {
   async function addCustomCategory() {
     if (!customName.trim()) return;
     const maxSort = categories.reduce((max, c) => Math.max(max, c.sort_order), 0);
-    const subLabel =
-      customSubType === "intensity" ? "Intensity level" : null;
+    const subLabel = customSubType === "intensity" ? "Intensity level" : null;
 
     const { data: newCat } = await supabase.from("activity_categories").insert({
       name: customName.trim(),
@@ -130,7 +143,6 @@ export default function ActivityLog({ date, saveCounter }: Props) {
     }).select().single();
 
     if (newCat) {
-      // Patch state directly — don't reload, so existing checkbox state is preserved
       setCategories((prev) => [...prev, newCat]);
       setActivities((prev) => ({ ...prev, [newCat.id]: { did: false, subValue: "" } }));
     }
@@ -146,6 +158,7 @@ export default function ActivityLog({ date, saveCounter }: Props) {
 
       {categories.map((cat) => {
         const act = activities[cat.id] || { did: false, subValue: "" };
+        const isTennis = cat.name === "Tennis";
         return (
           <div key={cat.id} className="rounded-lg border border-gray-200 p-3">
             <label className="flex items-center gap-3 cursor-pointer select-none">
@@ -199,6 +212,18 @@ export default function ActivityLog({ date, saveCounter }: Props) {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Tennis note — shown inside Tennis card when checked */}
+            {isTennis && act.did && onTennisNoteChange !== undefined && (
+              <div className="mt-3 ml-8">
+                <p className="text-xs font-medium text-gray-500 mb-1">Tennis notes</p>
+                <NoteField
+                  label="tennis"
+                  value={tennisNote ?? ""}
+                  onChange={onTennisNoteChange}
+                />
               </div>
             )}
           </div>
