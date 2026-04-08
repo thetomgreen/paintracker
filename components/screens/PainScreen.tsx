@@ -17,13 +17,15 @@ const NOTE_CONFIG = {
 } as const;
 
 export default function PainScreen({ date, promptType, onSaved }: Props) {
-  const [painLevel,  setPainLevel]  = useState<number | null>(null);
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
-  const [showErrors, setShowErrors] = useState(false);
-  const [entryId,    setEntryId]    = useState<string | null>(null);
-  const [firstNote,  setFirstNote]  = useState("");
-  const [secondNote, setSecondNote] = useState("");
+  const [painLevel,        setPainLevel]        = useState<number | null>(null);
+  const [saving,           setSaving]           = useState(false);
+  const [saved,            setSaved]            = useState(false);
+  const [showErrors,       setShowErrors]       = useState(false);
+  const [entryId,          setEntryId]          = useState<string | null>(null);
+  const [firstNote,        setFirstNote]        = useState("");
+  const [secondNote,       setSecondNote]       = useState("");
+  const [tennisNote,       setTennisNote]       = useState("");
+  const [tennisToday,      setTennisToday]      = useState(false);
 
   const noteConfig = NOTE_CONFIG[promptType];
 
@@ -34,14 +36,34 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
     setEntryId(null);
     setFirstNote("");
     setSecondNote("");
+    setTennisNote("");
+    setTennisToday(false);
     loadEntry();
   }, [date, promptType]);
 
   async function loadEntry() {
-    const [painRes, notesRes] = await Promise.all([
+    const noteTypes = promptType === "evening"
+      ? [noteConfig.firstType, noteConfig.secondType, "tennis_notes"]
+      : [noteConfig.firstType, noteConfig.secondType];
+
+    const queries: Promise<any>[] = [
       supabase.from("pain_entries").select("*").eq("entry_date", date).eq("prompt_type", promptType).maybeSingle(),
-      supabase.from("notes_entries").select("note_type, content").eq("entry_date", date).in("note_type", [noteConfig.firstType, noteConfig.secondType]),
-    ]);
+      supabase.from("notes_entries").select("note_type, content").eq("entry_date", date).in("note_type", noteTypes),
+    ];
+
+    // For evening, also check if tennis was played today
+    if (promptType === "evening") {
+      queries.push(
+        supabase.from("activity_entries")
+          .select("id, activity_categories!inner(name)")
+          .eq("entry_date", date)
+          .eq("did_activity", true)
+          .eq("activity_categories.name", "Tennis")
+          .maybeSingle()
+      );
+    }
+
+    const [painRes, notesRes, tennisRes] = await Promise.all(queries);
 
     if (painRes.data) {
       setPainLevel(painRes.data.pain_level);
@@ -52,6 +74,11 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
     for (const note of notesRes.data || []) {
       if (note.note_type === noteConfig.firstType) setFirstNote(note.content);
       if (note.note_type === noteConfig.secondType) setSecondNote(note.content);
+      if (note.note_type === "tennis_notes") setTennisNote(note.content);
+    }
+
+    if (promptType === "evening" && tennisRes?.data) {
+      setTennisToday(true);
     }
   }
 
@@ -68,7 +95,7 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
       if (data) setEntryId(data.id);
     }
 
-    await Promise.all([
+    const noteUpserts = [
       supabase.from("notes_entries").upsert(
         { entry_date: date, note_type: noteConfig.firstType, content: firstNote },
         { onConflict: "entry_date,note_type" }
@@ -77,7 +104,19 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
         { entry_date: date, note_type: noteConfig.secondType, content: secondNote },
         { onConflict: "entry_date,note_type" }
       ),
-    ]);
+    ];
+
+    // Save tennis notes for evening if tennis was played
+    if (promptType === "evening" && tennisToday) {
+      noteUpserts.push(
+        supabase.from("notes_entries").upsert(
+          { entry_date: date, note_type: "tennis_notes", content: tennisNote },
+          { onConflict: "entry_date,note_type" }
+        )
+      );
+    }
+
+    await Promise.all(noteUpserts);
 
     setSaving(false);
     setSaved(true);
@@ -95,6 +134,9 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
         </h2>
         <PainRow value={painLevel} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
         <div className="mt-3 flex flex-col gap-2">
+          {promptType === "evening" && tennisToday && (
+            <NoteField label="tennis" value={tennisNote} onChange={setTennisNote} />
+          )}
           <NoteField label={noteConfig.firstLabel} value={firstNote} onChange={setFirstNote} />
           <NoteField label={noteConfig.secondLabel} value={secondNote} onChange={setSecondNote} />
         </div>

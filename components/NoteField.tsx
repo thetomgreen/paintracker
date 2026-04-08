@@ -65,7 +65,19 @@ export default function NoteField({ label, value, onChange }: NoteFieldProps) {
         style={{ minHeight: "2.25rem" }}
       />
       <button
-        onClick={handleDone}
+        onClick={() => {
+          if (isDone) {
+            setIsDone(false);
+            setTimeout(() => {
+              const el = textareaRef.current;
+              if (!el) return;
+              el.focus();
+              el.setSelectionRange(el.value.length, el.value.length);
+            }, 0);
+          } else {
+            handleDone();
+          }
+        }}
         className="shrink-0 text-sm font-medium text-blue-500 py-2 px-1"
       >
         {isDone ? "Edit note" : "Done"}
