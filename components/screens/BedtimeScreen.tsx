@@ -63,13 +63,17 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
     }
     if (painRes.data || medRes.data) setSaved(true);
 
-    setTennisCheckedToday(!!tennisRes.data);
-
     // Load notes — tennis_bedtime takes priority, else pre-populate from lunchtime tennis_notes
     const noteMap: Record<string, string> = {};
     for (const note of notesRes.data || []) {
       noteMap[note.note_type] = note.content;
     }
+
+    // Pre-check tennis if activity logged OR lunchtime tennis note exists
+    const hasTennisActivity = !!tennisRes.data;
+    const hasLunchtimeTennisNote = !!noteMap["tennis_notes"]?.trim();
+    setTennisCheckedToday(hasTennisActivity || hasLunchtimeTennisNote);
+
     if (noteMap["tennis_bedtime"] !== undefined) {
       setTennisBedtimeNote(noteMap["tennis_bedtime"]);
     } else if (noteMap["tennis_notes"]) {
@@ -149,11 +153,20 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
         <ActivityLog date={date} saveCounter={saveCounter} />
       </div>
 
-      {tennisCheckedToday && (
-        <div className="px-4">
+      <div className="px-4 flex flex-col gap-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={tennisCheckedToday}
+            onChange={(e) => setTennisCheckedToday(e.target.checked)}
+            className="w-4 h-4 rounded accent-blue-500"
+          />
+          <span className="text-sm font-medium text-gray-700">Tennis today?</span>
+        </label>
+        {tennisCheckedToday && (
           <NoteField label="tennis" value={tennisBedtimeNote} onChange={setTennisBedtimeNote} />
-        </div>
-      )}
+        )}
+      </div>
 
       <hr className="border-gray-200 mx-4" />
 
