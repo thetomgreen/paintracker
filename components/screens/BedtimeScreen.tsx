@@ -153,20 +153,11 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
         <ActivityLog date={date} saveCounter={saveCounter} />
       </div>
 
-      <div className="px-4 flex flex-col gap-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={tennisCheckedToday}
-            onChange={(e) => setTennisCheckedToday(e.target.checked)}
-            className="w-4 h-4 rounded accent-blue-500"
-          />
-          <span className="text-sm font-medium text-gray-700">Tennis today?</span>
-        </label>
-        {tennisCheckedToday && (
+      {tennisCheckedToday && (
+        <div className="px-4">
           <NoteField label="tennis" value={tennisBedtimeNote} onChange={setTennisBedtimeNote} />
-        )}
-      </div>
+        </div>
+      )}
 
       <hr className="border-gray-200 mx-4" />
 
