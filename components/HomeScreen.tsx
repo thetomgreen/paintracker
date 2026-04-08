@@ -70,16 +70,102 @@ function formatTime(timeStr: string): string {
   return m === 0 ? `${hour}${period}` : `${hour}:${String(m).padStart(2, "0")}${period}`;
 }
 
+type PtYesterdayState = "loading" | "missing" | "no" | "once" | "twice";
+
 export default function HomeScreen({ devMode = false, promptParam }: { devMode?: boolean; promptParam?: string }) {
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
+  const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString("en-CA"); })();
   const initialScreen = (promptParam && promptParam in SCREEN_CONFIG) ? promptParam as ScreenType : getCurrentScreen();
-  const [screen,       setScreen]       = useState<ScreenType>(initialScreen);
-  const [thankYou,     setThankYou]     = useState(false);
+  const [screen,          setScreen]          = useState<ScreenType>(initialScreen);
+  const [thankYou,        setThankYou]        = useState(false);
   const skipAlreadyDoneCheck = useRef(!!promptParam && promptParam in SCREEN_CONFIG);
-  const [resetKey,     setResetKey]     = useState(0);
-  const [resetting,    setResetting]    = useState(false);
-  const [notifTimes,   setNotifTimes]   = useState<Record<string, string>>({});
-  const [checking,     setChecking]     = useState(true); // avoids flash of form before DB check
+  const [resetKey,        setResetKey]        = useState(0);
+  const [resetting,       setResetting]       = useState(false);
+  const [notifTimes,      setNotifTimes]      = useState<Record<string, string>>({});
+  const [checking,        setChecking]        = useState(true); // avoids flash of form before DB check
+  const [ptYesterday,     setPtYesterday]     = useState<PtYesterdayState>("loading");
+  const [ptStreak,        setPtStreak]        = useState(0);
+  const [ptTwiceStreak,   setPtTwiceStreak]   = useState(0);
+
+  // Load PT yesterday status whenever the thank-you screen appears (non-bedtime only)
+  useEffect(() => {
+    if (!thankYou || screen === "bedtime") return;
+    setPtYesterday("loading");
+    setPtStreak(0);
+    setPtTwiceStreak(0);
+    loadPtYesterday();
+  }, [thankYou, screen]);
+
+  async function loadPtYesterday() {
+    const { data } = await supabase
+      .from("pt_entries")
+      .select("completed")
+      .eq("entry_date", yesterday)
+      .maybeSingle();
+
+    if (!data) {
+      setPtYesterday("missing");
+      return;
+    }
+
+    const completed = data.completed as PtYesterdayState;
+    setPtYesterday(completed);
+
+    if (completed === "once" || completed === "twice") {
+      await calculatePtStreaks();
+    }
+  }
+
+  async function calculatePtStreaks() {
+    const { data } = await supabase
+      .from("pt_entries")
+      .select("entry_date, completed")
+      .lte("entry_date", yesterday)
+      .order("entry_date", { ascending: false });
+
+    if (!data) return;
+
+    const entryMap = new Map(data.map((e: { entry_date: string; completed: string }) => [e.entry_date, e.completed]));
+
+    let streak = 0;
+    let twiceStreak = 0;
+    let streakBroken = false;
+    let twiceStreakBroken = false;
+
+    const d = new Date(yesterday + "T12:00:00");
+    for (let i = 0; i < 3650; i++) {
+      const dateStr = d.toLocaleDateString("en-CA");
+      const completed = entryMap.get(dateStr);
+
+      if (!streakBroken) {
+        if (completed === "once" || completed === "twice") streak++;
+        else streakBroken = true;
+      }
+
+      if (!twiceStreakBroken) {
+        if (completed === "twice") twiceStreak++;
+        else twiceStreakBroken = true;
+      }
+
+      if (streakBroken && twiceStreakBroken) break;
+      d.setDate(d.getDate() - 1);
+    }
+
+    setPtStreak(streak);
+    setPtTwiceStreak(twiceStreak);
+  }
+
+  async function savePtYesterday(value: "no" | "once" | "twice") {
+    await supabase
+      .from("pt_entries")
+      .upsert({ entry_date: yesterday, completed: value }, { onConflict: "entry_date" });
+
+    setPtYesterday(value);
+
+    if (value === "once" || value === "twice") {
+      await calculatePtStreaks();
+    }
+  }
 
   // Load notification times once (for button labels)
   useEffect(() => {
@@ -157,9 +243,70 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
         {checking ? null : thankYou ? (
           <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
             <span className="text-6xl">{THANK_YOU_EMOJI[screen]}</span>
-            <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-              {THANK_YOU_MSG[screen]}
-            </p>
+
+            {screen === "bedtime" ? (
+              <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                {THANK_YOU_MSG[screen]}
+              </p>
+            ) : (
+              <>
+                {/* PT loading — show plain thanks while we fetch */}
+                {ptYesterday === "loading" && (
+                  <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                    Thanks for entering your data.
+                  </p>
+                )}
+
+                {/* No pt_entries row for yesterday — ask the user */}
+                {ptYesterday === "missing" && (
+                  <>
+                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                      Thanks for entering your data.
+                    </p>
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 w-full max-w-sm text-left space-y-3">
+                      <p className="font-medium text-gray-800">
+                        Did you do your PT exercises yesterday?
+                      </p>
+                      <div className="flex gap-2">
+                        {(["no", "once", "twice"] as const).map((v) => (
+                          <button
+                            key={v}
+                            onClick={() => savePtYesterday(v)}
+                            className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold capitalize"
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Did exercises — show streak */}
+                {(ptYesterday === "once" || ptYesterday === "twice") && (
+                  <>
+                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                      Thanks for entering your data. You&apos;re on a {ptStreak} day streak
+                      with your PT exercises — great work! Keep it up today — can you do them twice?
+                    </p>
+                    <div className="text-sm text-gray-500 space-y-1 w-full max-w-sm text-left bg-gray-50 rounded-lg px-4 py-3">
+                      <p>PT exercise streak: <span className="font-semibold text-gray-700">{ptStreak} {ptStreak === 1 ? "day" : "days"}</span></p>
+                      {ptTwiceStreak > 0 && (
+                        <p>PT exercise twice in a day streak: <span className="font-semibold text-gray-700">{ptTwiceStreak} {ptTwiceStreak === 1 ? "day" : "days"}</span></p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Missed exercises yesterday */}
+                {ptYesterday === "no" && (
+                  <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                    You missed your exercises yesterday. That&apos;s ok, you can get back at it today!
+                  </p>
+                )}
+              </>
+            )}
+
             {nextInfo && notifTimes[nextInfo.timeKey] && isWithin2HoursBefore(notifTimes[nextInfo.timeKey]) && (
               <button
                 onClick={() => switchScreen(nextInfo.screen)}
