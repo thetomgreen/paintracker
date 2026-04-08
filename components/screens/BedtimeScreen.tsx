@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import ActivityLog from "@/components/ActivityLog";
 import PtEntry from "@/components/PtEntry";
 import { PainRow } from "./MorningScreen";
+import NoteField from "@/components/NoteField";
 
 interface MedEntry {
   id: string;
@@ -18,16 +19,20 @@ function sectionClass(hasError: boolean) {
 }
 
 export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
-  const [painLevel,    setPainLevel]    = useState<number | null>(null);
-  const [painEntryId,  setPainEntryId]  = useState<string | null>(null);
-  const [oxyAfternoon, setOxyAfternoon] = useState<boolean | null>(null);
-  const [medEntry,     setMedEntry]     = useState<MedEntry | null>(null);
-  const [ptValue,      setPtValue]      = useState<string | null>(null);
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [showErrors,   setShowErrors]   = useState(false);
-  const [saveCounter,    setSaveCounter]    = useState(0);
-  const [triggerComplete, setTriggerComplete] = useState(false);
+  const [painLevel,         setPainLevel]         = useState<number | null>(null);
+  const [painEntryId,       setPainEntryId]       = useState<string | null>(null);
+  const [oxyAfternoon,      setOxyAfternoon]      = useState<boolean | null>(null);
+  const [medEntry,          setMedEntry]          = useState<MedEntry | null>(null);
+  const [ptValue,           setPtValue]           = useState<string | null>(null);
+  const [saving,            setSaving]            = useState(false);
+  const [saved,             setSaved]             = useState(false);
+  const [showErrors,        setShowErrors]        = useState(false);
+  const [saveCounter,       setSaveCounter]       = useState(0);
+  const [triggerComplete,   setTriggerComplete]   = useState(false);
+  const [tennisCheckedToday, setTennisCheckedToday] = useState(false);
+  const [tennisBedtimeNote, setTennisBedtimeNote] = useState("");
+  const [ptNote,            setPtNote]            = useState("");
+  const [bedtimeGeneralNote, setBedtimeGeneralNote] = useState("");
 
   const canSave = painLevel !== null && ptValue !== null && oxyAfternoon !== null;
 
@@ -39,9 +44,13 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
   useEffect(() => { loadEntries(); }, [date]);
 
   async function loadEntries() {
-    const [painRes, medRes] = await Promise.all([
+    const [painRes, medRes, tennisRes, notesRes] = await Promise.all([
       supabase.from("pain_entries").select("*").eq("entry_date", date).eq("prompt_type", "bedtime").maybeSingle(),
       supabase.from("medication_entries").select("*").eq("entry_date", date).maybeSingle(),
+      supabase.from("activity_entries").select("id, activity_categories!inner(name)")
+        .eq("entry_date", date).eq("did_activity", true).eq("activity_categories.name", "Tennis").maybeSingle(),
+      supabase.from("notes_entries").select("note_type, content").eq("entry_date", date)
+        .in("note_type", ["tennis_bedtime", "pt_notes", "bedtime_general", "tennis_notes"]),
     ]);
 
     if (painRes.data) {
@@ -53,6 +62,21 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
       setOxyAfternoon(medRes.data.oxycodone_this_afternoon);
     }
     if (painRes.data || medRes.data) setSaved(true);
+
+    setTennisCheckedToday(!!tennisRes.data);
+
+    // Load notes — tennis_bedtime takes priority, else pre-populate from lunchtime tennis_notes
+    const noteMap: Record<string, string> = {};
+    for (const note of notesRes.data || []) {
+      noteMap[note.note_type] = note.content;
+    }
+    if (noteMap["tennis_bedtime"] !== undefined) {
+      setTennisBedtimeNote(noteMap["tennis_bedtime"]);
+    } else if (noteMap["tennis_notes"]) {
+      setTennisBedtimeNote(noteMap["tennis_notes"]);
+    }
+    if (noteMap["pt_notes"] !== undefined) setPtNote(noteMap["pt_notes"]);
+    if (noteMap["bedtime_general"] !== undefined) setBedtimeGeneralNote(noteMap["bedtime_general"]);
   }
 
   async function handleSave() {
@@ -84,6 +108,26 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
       }
     }
 
+    const noteUpserts = [
+      supabase.from("notes_entries").upsert(
+        { entry_date: date, note_type: "pt_notes", content: ptNote },
+        { onConflict: "entry_date,note_type" }
+      ),
+      supabase.from("notes_entries").upsert(
+        { entry_date: date, note_type: "bedtime_general", content: bedtimeGeneralNote },
+        { onConflict: "entry_date,note_type" }
+      ),
+    ];
+    if (tennisCheckedToday) {
+      noteUpserts.push(
+        supabase.from("notes_entries").upsert(
+          { entry_date: date, note_type: "tennis_bedtime", content: tennisBedtimeNote },
+          { onConflict: "entry_date,note_type" }
+        )
+      );
+    }
+    await Promise.all(noteUpserts);
+
     setSaveCounter((c) => c + 1);
     setSaving(false);
     setSaved(true);
@@ -105,10 +149,19 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
         <ActivityLog date={date} saveCounter={saveCounter} />
       </div>
 
+      {tennisCheckedToday && (
+        <div className="px-4">
+          <NoteField label="tennis" value={tennisBedtimeNote} onChange={setTennisBedtimeNote} />
+        </div>
+      )}
+
       <hr className="border-gray-200 mx-4" />
 
       <div className={sectionClass(showErrors && ptValue === null)}>
         <PtEntry date={date} saveCounter={saveCounter} onChange={setPtValue} />
+        <div className="mt-3">
+          <NoteField label="PT exercises" value={ptNote} onChange={setPtNote} />
+        </div>
       </div>
 
       <hr className="border-gray-200 mx-4" />
@@ -131,6 +184,10 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="px-4">
+        <NoteField label="general" value={bedtimeGeneralNote} onChange={setBedtimeGeneralNote} />
       </div>
 
       <button

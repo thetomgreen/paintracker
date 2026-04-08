@@ -12,6 +12,25 @@ const PROMPT_LABELS: Record<string, string> = {
   night:      "Night",
 };
 
+const NOTE_LABELS: Record<string, string> = {
+  sleep_notes:       "Sleep notes",
+  morning_general:   "General notes",
+  tennis_notes:      "Tennis notes",
+  lunchtime_general: "General notes",
+  rest_notes:        "Rest notes",
+  evening_general:   "General notes",
+  tennis_bedtime:    "Tennis notes",
+  pt_notes:          "PT notes",
+  bedtime_general:   "General notes",
+};
+
+const NOTE_ORDER = [
+  "sleep_notes", "morning_general",
+  "tennis_notes", "lunchtime_general",
+  "rest_notes", "evening_general",
+  "tennis_bedtime", "pt_notes", "bedtime_general",
+];
+
 interface DaySummary {
   date: string;
   pain: Record<string, number>;
@@ -20,33 +39,45 @@ interface DaySummary {
   pt: string | null;
   oxyLastNight: boolean;
   oxyAfternoon: boolean;
+  notes: Record<string, string>;
 }
 
 export default function HistoryPage() {
   const [days, setDays] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadHistory();
   }, []);
+
+  function toggleNote(key: string) {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function loadHistory() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const fromDate = thirtyDaysAgo.toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
 
-    const [painRes, actRes, ptRes, medRes] = await Promise.all([
+    const [painRes, actRes, ptRes, medRes, notesRes] = await Promise.all([
       supabase.from("pain_entries").select("*").gte("entry_date", fromDate).order("entry_date", { ascending: false }),
       supabase.from("activity_entries").select("*, activity_categories(name)").gte("entry_date", fromDate).eq("did_activity", true),
       supabase.from("pt_entries").select("*").gte("entry_date", fromDate),
       supabase.from("medication_entries").select("*").gte("entry_date", fromDate),
+      supabase.from("notes_entries").select("entry_date, note_type, content").gte("entry_date", fromDate),
     ]);
 
     const dateMap = new Map<string, DaySummary>();
 
     function getDay(date: string): DaySummary {
       if (!dateMap.has(date)) {
-        dateMap.set(date, { date, pain: {}, sleepQuality: null, activities: [], pt: null, oxyLastNight: false, oxyAfternoon: false });
+        dateMap.set(date, { date, pain: {}, sleepQuality: null, activities: [], pt: null, oxyLastNight: false, oxyAfternoon: false, notes: {} });
       }
       return dateMap.get(date)!;
     }
@@ -80,6 +111,12 @@ export default function HistoryPage() {
       const day = getDay(entry.entry_date);
       day.oxyLastNight = entry.oxycodone_last_night;
       day.oxyAfternoon = entry.oxycodone_this_afternoon;
+    }
+
+    for (const entry of notesRes.data || []) {
+      if (entry.content?.trim()) {
+        getDay(entry.entry_date).notes[entry.note_type] = entry.content;
+      }
     }
 
     const sorted = Array.from(dateMap.values()).sort((a, b) => b.date.localeCompare(a.date));
@@ -162,6 +199,37 @@ export default function HistoryPage() {
                 </span>
               )}
             </div>
+
+            {/* Notes */}
+            {NOTE_ORDER.some((type) => day.notes[type]) && (
+              <div className="space-y-1 border-t border-gray-100 pt-2">
+                {NOTE_ORDER.filter((type) => day.notes[type]).map((type) => {
+                  const key = `${day.date}:${type}`;
+                  const isExpanded = expandedNotes.has(key);
+                  const content = day.notes[type];
+                  const firstLine = content.split("\n")[0];
+                  const preview = firstLine.length > 80 ? firstLine.slice(0, 80) + "…" : firstLine;
+
+                  return (
+                    <div key={type} className="text-sm">
+                      <button
+                        onClick={() => toggleNote(key)}
+                        className="w-full flex items-start gap-1 text-left"
+                      >
+                        <span className="text-gray-400 mt-0.5 shrink-0">{isExpanded ? "▼" : "▶"}</span>
+                        <span className="text-gray-500 font-medium shrink-0">{NOTE_LABELS[type]}:</span>
+                        {!isExpanded && (
+                          <span className="text-gray-400 truncate">{preview}</span>
+                        )}
+                      </button>
+                      {isExpanded && (
+                        <p className="mt-1 ml-4 text-gray-700 whitespace-pre-wrap">{content}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </main>

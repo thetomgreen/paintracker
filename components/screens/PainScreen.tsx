@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { PainRow } from "./MorningScreen";
+import NoteField from "@/components/NoteField";
 
 interface Props {
   date: string;
@@ -10,31 +11,47 @@ interface Props {
   onSaved: () => void;
 }
 
+const NOTE_CONFIG = {
+  afternoon: { firstType: "tennis_notes",  firstLabel: "tennis", secondType: "lunchtime_general", secondLabel: "general" },
+  evening:   { firstType: "rest_notes",    firstLabel: "rest",   secondType: "evening_general",   secondLabel: "general" },
+} as const;
+
 export default function PainScreen({ date, promptType, onSaved }: Props) {
   const [painLevel,  setPainLevel]  = useState<number | null>(null);
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [entryId,    setEntryId]    = useState<string | null>(null);
+  const [firstNote,  setFirstNote]  = useState("");
+  const [secondNote, setSecondNote] = useState("");
+
+  const noteConfig = NOTE_CONFIG[promptType];
 
   useEffect(() => {
     setPainLevel(null);
     setSaved(false);
     setShowErrors(false);
     setEntryId(null);
+    setFirstNote("");
+    setSecondNote("");
     loadEntry();
   }, [date, promptType]);
 
   async function loadEntry() {
-    const { data } = await supabase
-      .from("pain_entries").select("*")
-      .eq("entry_date", date).eq("prompt_type", promptType)
-      .maybeSingle();
+    const [painRes, notesRes] = await Promise.all([
+      supabase.from("pain_entries").select("*").eq("entry_date", date).eq("prompt_type", promptType).maybeSingle(),
+      supabase.from("notes_entries").select("note_type, content").eq("entry_date", date).in("note_type", [noteConfig.firstType, noteConfig.secondType]),
+    ]);
 
-    if (data) {
-      setPainLevel(data.pain_level);
-      setEntryId(data.id);
+    if (painRes.data) {
+      setPainLevel(painRes.data.pain_level);
+      setEntryId(painRes.data.id);
       setSaved(true);
+    }
+
+    for (const note of notesRes.data || []) {
+      if (note.note_type === noteConfig.firstType) setFirstNote(note.content);
+      if (note.note_type === noteConfig.secondType) setSecondNote(note.content);
     }
   }
 
@@ -51,6 +68,17 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
       if (data) setEntryId(data.id);
     }
 
+    await Promise.all([
+      supabase.from("notes_entries").upsert(
+        { entry_date: date, note_type: noteConfig.firstType, content: firstNote },
+        { onConflict: "entry_date,note_type" }
+      ),
+      supabase.from("notes_entries").upsert(
+        { entry_date: date, note_type: noteConfig.secondType, content: secondNote },
+        { onConflict: "entry_date,note_type" }
+      ),
+    ]);
+
     setSaving(false);
     setSaved(true);
     setShowErrors(false);
@@ -66,6 +94,10 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
           How is your level of pain now?
         </h2>
         <PainRow value={painLevel} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
+        <div className="mt-3 flex flex-col gap-2">
+          <NoteField label={noteConfig.firstLabel} value={firstNote} onChange={setFirstNote} />
+          <NoteField label={noteConfig.secondLabel} value={secondNote} onChange={setSecondNote} />
+        </div>
       </div>
 
       <button
