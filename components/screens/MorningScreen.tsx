@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import NoteField from "@/components/NoteField";
 
 const SLEEP_VALUES = ["terrible", "poor", "fair", "good", "fantastic"] as const;
 
@@ -33,23 +34,26 @@ function sectionClass(hasError: boolean) {
 }
 
 export default function MorningScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
-  const [sleepQuality,   setSleepQuality]   = useState<string | null>(null);
-  const [painLastNight,  setPainLastNight]  = useState<number | null>(null);
-  const [painNow,        setPainNow]        = useState<number | null>(null);
-  const [oxyLastNight,   setOxyLastNight]   = useState<boolean | null>(null);
-  const [saving,         setSaving]         = useState(false);
-  const [saved,          setSaved]          = useState(false);
-  const [showErrors,     setShowErrors]     = useState(false);
-  const [overnightEntry, setOvernightEntry] = useState<PainEntry | null>(null);
-  const [morningEntry,   setMorningEntry]   = useState<PainEntry | null>(null);
-  const [medEntry,       setMedEntry]       = useState<MedEntry | null>(null);
+  const [sleepQuality,      setSleepQuality]      = useState<string | null>(null);
+  const [painLastNight,     setPainLastNight]     = useState<number | null>(null);
+  const [painNow,           setPainNow]           = useState<number | null>(null);
+  const [oxyLastNight,      setOxyLastNight]      = useState<boolean | null>(null);
+  const [saving,            setSaving]            = useState(false);
+  const [saved,             setSaved]             = useState(false);
+  const [showErrors,        setShowErrors]        = useState(false);
+  const [overnightEntry,    setOvernightEntry]    = useState<PainEntry | null>(null);
+  const [morningEntry,      setMorningEntry]      = useState<PainEntry | null>(null);
+  const [medEntry,          setMedEntry]          = useState<MedEntry | null>(null);
+  const [sleepNote,         setSleepNote]         = useState("");
+  const [morningGeneralNote, setMorningGeneralNote] = useState("");
 
   useEffect(() => { loadEntries(); }, [date]);
 
   async function loadEntries() {
-    const [painRes, medRes] = await Promise.all([
+    const [painRes, medRes, notesRes] = await Promise.all([
       supabase.from("pain_entries").select("*").eq("entry_date", date).in("prompt_type", ["overnight", "morning"]),
       supabase.from("medication_entries").select("*").eq("entry_date", date).maybeSingle(),
+      supabase.from("notes_entries").select("note_type, content").eq("entry_date", date).in("note_type", ["sleep_notes", "morning_general"]),
     ]);
 
     for (const entry of painRes.data || []) {
@@ -68,6 +72,11 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
       setOxyLastNight(medRes.data.oxycodone_last_night);
     }
     if ((painRes.data || []).length > 0 || medRes.data) setSaved(true);
+
+    for (const note of notesRes.data || []) {
+      if (note.note_type === "sleep_notes") setSleepNote(note.content);
+      if (note.note_type === "morning_general") setMorningGeneralNote(note.content);
+    }
   }
 
   async function handleSave() {
@@ -108,6 +117,17 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
       if (data) setMedEntry(data);
     }
 
+    await Promise.all([
+      supabase.from("notes_entries").upsert(
+        { entry_date: date, note_type: "sleep_notes", content: sleepNote },
+        { onConflict: "entry_date,note_type" }
+      ),
+      supabase.from("notes_entries").upsert(
+        { entry_date: date, note_type: "morning_general", content: morningGeneralNote },
+        { onConflict: "entry_date,note_type" }
+      ),
+    ]);
+
     setSaving(false);
     setSaved(true);
     setShowErrors(false);
@@ -127,6 +147,9 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
       <div className={sectionClass(showErrors && painLastNight === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How was your level of pain last night?</h2>
         <PainRow value={painLastNight} onChange={(v) => { setPainLastNight(v); setSaved(false); }} />
+        <div className="mt-3">
+          <NoteField label="sleep" value={sleepNote} onChange={setSleepNote} />
+        </div>
       </div>
 
       <div className={sectionClass(showErrors && painNow === null)}>
@@ -150,6 +173,10 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="px-4">
+        <NoteField label="general" value={morningGeneralNote} onChange={setMorningGeneralNote} />
       </div>
 
       <button
