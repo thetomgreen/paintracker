@@ -293,7 +293,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
 
                     {/* Streak headline */}
                     <p className="text-xl font-semibold text-gray-800">
-                      You&apos;re on a day streak with your PT exercises — great work!
+                      You&apos;re on a {ptStreak} day streak with your PT exercises — great work!
                     </p>
 
                     {/* Stretching icon + big streak number */}
@@ -303,7 +303,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                         className="font-black leading-none text-transparent bg-clip-text"
                         style={{
                           fontSize: "5rem",
-                          backgroundImage: "linear-gradient(135deg, #f97316, #ec4899)",
+                          backgroundImage: "linear-gradient(135deg, #22c55e, #16a34a)",
                         }}
                       >
                         {ptStreak}
