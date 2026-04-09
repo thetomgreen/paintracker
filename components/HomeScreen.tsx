@@ -88,6 +88,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [ptTwiceStreak,   setPtTwiceStreak]   = useState(0);
   const [ptToday,         setPtToday]         = useState<string | null>(null);
   const [ptTodayPrev,     setPtTodayPrev]     = useState<string | null>(null);
+  const [streakAnimKey,   setStreakAnimKey]    = useState(0);
 
   // Load PT status whenever the thank-you screen appears.
   // Bedtime checks today (just logged); other screens check yesterday.
@@ -175,18 +176,13 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   }
 
   // Load today's PT for the "I've done my PT today" button on the thank-you screen.
-  // For bedtime, pre-set undo reference so the button appears highlighted from the start.
   async function loadPtToday() {
     const { data } = await supabase
       .from("pt_entries")
       .select("completed")
       .eq("entry_date", today)
       .maybeSingle();
-    const val = data?.completed ?? null;
-    setPtToday(val);
-    if (screen === "bedtime" && val && val !== "no") {
-      setPtTodayPrev("no"); // enables highlight + undo on bedtime without user pressing first
-    }
+    setPtToday(data?.completed ?? null);
   }
 
   async function handlePtTodayLog() {
@@ -196,6 +192,9 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     await supabase
       .from("pt_entries")
       .upsert({ entry_date: today, completed: next }, { onConflict: "entry_date" });
+    // Recalculate streaks from today (now includes today's entry) then animate
+    await calculatePtStreaks(today);
+    setStreakAnimKey((k) => k + 1);
   }
 
   async function handlePtTodayUndo() {
@@ -204,12 +203,17 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     if (!prev || prev === "no") {
       setPtToday(null);
       await supabase.from("pt_entries").delete().eq("entry_date", today);
+      // Quietly revert to yesterday-based streak
+      await calculatePtStreaks(yesterday);
     } else {
       setPtToday(prev);
       await supabase
         .from("pt_entries")
         .upsert({ entry_date: today, completed: prev }, { onConflict: "entry_date" });
+      // Quietly recalculate (going back to once still keeps today in the chain)
+      await calculatePtStreaks(today);
     }
+    // No animation on undo
   }
 
   // Load notification times once (for button labels)
@@ -318,28 +322,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                       </p>
                     </div>
 
-                    {/* PT log today button — pre-highlighted for bedtime */}
-                    <div className="flex items-center gap-2">
-                      {ptToday === "twice" && ptTodayPrev === null ? (
-                        <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
-                          Done twice today ✓
-                        </div>
-                      ) : ptTodayPrev !== null ? (
-                        <>
-                          <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
-                            {ptToday === "twice" ? "Done twice today ✓" : "Done once today ✓"}
-                          </div>
-                          <button onClick={handlePtTodayUndo} className="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
-                            Undo
-                          </button>
-                        </>
-                      ) : (
-                        <button onClick={handlePtTodayLog} className="flex-1 py-2 rounded-lg bg-green-100 text-green-700 text-sm font-semibold border border-green-200">
-                          {ptToday === "once" ? "I've done PT a second time today" : "I've done my PT today"}
-                        </button>
-                      )}
-                    </div>
-
                     <p className="text-lg font-medium text-gray-600 pt-1">
                       Sleep well — good night. 🌙
                     </p>
@@ -417,10 +399,12 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                     <div className="flex items-center justify-center gap-3">
                       <span className="text-6xl">🤸</span>
                       <span
+                        key={streakAnimKey}
                         className="font-black leading-none text-transparent bg-clip-text"
                         style={{
                           fontSize: "5rem",
                           backgroundImage: "linear-gradient(135deg, #22c55e, #16a34a)",
+                          animation: streakAnimKey > 0 ? "ptStreakPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards" : "none",
                         }}
                       >
                         {ptStreak}
@@ -457,7 +441,11 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                     </div>
 
                     {/* Streak counts */}
-                    <div className="space-y-2">
+                    <div
+                      key={streakAnimKey}
+                      className="space-y-2"
+                      style={{ animation: streakAnimKey > 0 ? "ptStreakSlide 0.45s ease-out 0.15s both" : "none" }}
+                    >
                       <p className="text-lg font-bold text-emerald-600">
                         PT exercise streak: {ptStreak} {ptStreak === 1 ? "day" : "days"}
                       </p>
