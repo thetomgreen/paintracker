@@ -93,36 +93,44 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [ptTwiceStreakSaved,  setPtTwiceStreakSaved]   = useState(0);
 
   // Load PT status whenever the thank-you screen appears.
-  // Bedtime checks today (just logged); other screens check yesterday.
+  // Always fetches both yesterday and today so the streak correctly
+  // includes today if PT was already logged via the button earlier.
   useEffect(() => {
     if (!thankYou) return;
-    const ptDate = screen === "bedtime" ? today : yesterday;
     setPtYesterday("loading");
     setPtStreak(0);
     setPtTwiceStreak(0);
     setPtToday(null);
     setPtTodayPrev(null);
-    loadPtForDate(ptDate);
-    loadPtToday();
+    loadPtAll();
   }, [thankYou, screen]);
 
-  async function loadPtForDate(ptDate: string) {
-    const { data } = await supabase
-      .from("pt_entries")
-      .select("completed")
-      .eq("entry_date", ptDate)
-      .maybeSingle();
-
-    if (!data) {
-      setPtYesterday("missing");
-      return;
-    }
-
-    const completed = data.completed as PtYesterdayState;
-    setPtYesterday(completed);
-
-    if (completed === "once" || completed === "twice") {
-      await calculatePtStreaks(ptDate);
+  async function loadPtAll() {
+    if (screen === "bedtime") {
+      const { data } = await supabase
+        .from("pt_entries").select("completed").eq("entry_date", today).maybeSingle();
+      const completed = (data?.completed ?? null) as PtYesterdayState | null;
+      setPtYesterday(completed ?? "missing");
+      setPtToday(completed);
+      if (completed === "once" || completed === "twice") {
+        await calculatePtStreaks(today);
+      }
+    } else {
+      // Fetch yesterday and today in parallel
+      const [yRes, tRes] = await Promise.all([
+        supabase.from("pt_entries").select("completed").eq("entry_date", yesterday).maybeSingle(),
+        supabase.from("pt_entries").select("completed").eq("entry_date", today).maybeSingle(),
+      ]);
+      const yCompleted = (yRes.data?.completed ?? null) as PtYesterdayState | null;
+      const tCompleted = tRes.data?.completed ?? null;
+      setPtYesterday(yCompleted ?? "missing");
+      setPtToday(tCompleted);
+      // If PT already done today, streak runs from today; otherwise from yesterday
+      if (tCompleted && tCompleted !== "no") {
+        await calculatePtStreaks(today);
+      } else if (yCompleted === "once" || yCompleted === "twice") {
+        await calculatePtStreaks(yesterday);
+      }
     }
   }
 
@@ -175,16 +183,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     if (value === "once" || value === "twice") {
       await calculatePtStreaks(yesterday);
     }
-  }
-
-  // Load today's PT for the "I've done my PT today" button on the thank-you screen.
-  async function loadPtToday() {
-    const { data } = await supabase
-      .from("pt_entries")
-      .select("completed")
-      .eq("entry_date", today)
-      .maybeSingle();
-    setPtToday(data?.completed ?? null);
   }
 
   async function handlePtTodayLog() {
