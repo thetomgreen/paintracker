@@ -283,11 +283,16 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                 {ptYesterday !== "once" && ptYesterday !== "twice" && (
                   <>
                     <span className="text-6xl">🌙</span>
-                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                      {ptYesterday === "no"
-                        ? "No PT today - sometimes we all need a break - back on it tomorrow!"
-                        : "Thanks, and sleep well — good night."}
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                        {ptYesterday === "no"
+                          ? "No PT today - sometimes we all need a break - back on it tomorrow!"
+                          : "Thanks, and sleep well — good night."}
+                      </p>
+                      {ptYesterday === "no" && (
+                        <p className="text-lg font-medium text-gray-600">Sleep well — good night.</p>
+                      )}
+                    </div>
                   </>
                 )}
               </>
