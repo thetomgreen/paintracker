@@ -227,7 +227,7 @@ function SleepRating({ value, onChange }: { value: string | null; onChange: (v: 
 export function PainRow({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
   return (
     <div className="flex gap-1.5">
-      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+      {Array.from({ length: 11 }, (_, i) => i).map((n) => (
         <button key={n} onClick={() => onChange(n)}
           className={`flex-1 h-12 rounded-lg text-base font-bold transition-all ${
             value === n
