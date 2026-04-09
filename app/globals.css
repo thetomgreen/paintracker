@@ -35,3 +35,161 @@ body {
   60%  { opacity: 1; transform: translateY(-2px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Moon animations (bedtime thank-you screen) ── */
+
+/* 1. Gentle float — slow dreamy bob */
+@keyframes moonFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-16px); }
+}
+
+/* 2. Soft breath — barely-there scale pulse */
+@keyframes moonBreath {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%       { transform: scale(1.1); opacity: 1; }
+}
+
+/* 3. Pendulum sway — side to side rock */
+@keyframes moonSway {
+  0%, 100% { transform: rotate(-7deg); }
+  50%       { transform: rotate(7deg); }
+}
+
+/* 4. Rise up — slides in from below */
+@keyframes moonRise {
+  0%   { transform: translateY(50px); opacity: 0; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
+
+/* 5. Slow spin — one full dream rotation */
+@keyframes moonSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* 6. Gentle twinkle — soft opacity shimmer */
+@keyframes moonTwinkle {
+  0%, 100% { opacity: 1;   }
+  25%       { opacity: 0.4; }
+  50%       { opacity: 0.9; }
+  75%       { opacity: 0.5; }
+}
+
+/* 7. Horizontal drift — slow tide-like sway */
+@keyframes moonDrift {
+  0%, 100% { transform: translateX(-14px); }
+  50%       { transform: translateX(14px); }
+}
+
+/* 8. Heartbeat — double pulse then rest */
+@keyframes moonHeartbeat {
+  0%, 100% { transform: scale(1);    }
+  14%       { transform: scale(1.28); }
+  28%       { transform: scale(1);    }
+  42%       { transform: scale(1.2);  }
+  70%       { transform: scale(1);    }
+}
+
+/* 9. Zoom in — materialises from nothing */
+@keyframes moonZoomIn {
+  0%   { transform: scale(0.05); opacity: 0; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+/* 10. Fade in slow — gradually appears */
+@keyframes moonFadeIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* 11. Drop and settle — falls from above with bounce */
+@keyframes moonDrop {
+  0%   { transform: translateY(-70px) scale(0.8); opacity: 0; }
+  65%  { transform: translateY(10px)  scale(1.05); opacity: 1; }
+  82%  { transform: translateY(-5px)  scale(0.97); }
+  100% { transform: translateY(0)     scale(1);    opacity: 1; }
+}
+
+/* 12. Shimmer — brightness glow pulse */
+@keyframes moonShimmer {
+  0%, 100% { filter: brightness(1);   }
+  50%       { filter: brightness(1.6); }
+}
+
+/* 13. Orbit — tiny slow circular path */
+@keyframes moonOrbit {
+  0%   { transform: translate(0, 0);     }
+  25%  { transform: translate(12px, -9px); }
+  50%  { transform: translate(0, -18px);  }
+  75%  { transform: translate(-12px, -9px); }
+  100% { transform: translate(0, 0);     }
+}
+
+/* 14. Nod — slow forward tilt */
+@keyframes moonNod {
+  0%, 100% { transform: perspective(400px) rotateX(0deg);  }
+  50%       { transform: perspective(400px) rotateX(28deg); }
+}
+
+/* 15. Quick wobble — jiggles then settles */
+@keyframes moonWobble {
+  0%   { transform: rotate(0deg);   }
+  12%  { transform: rotate(-14deg); }
+  28%  { transform: rotate(11deg);  }
+  44%  { transform: rotate(-8deg);  }
+  60%  { transform: rotate(5deg);   }
+  76%  { transform: rotate(-3deg);  }
+  100% { transform: rotate(0deg);   }
+}
+
+/* 16. Flicker — rapid starlight blink */
+@keyframes moonFlicker {
+  0%, 100% { opacity: 1;   }
+  8%        { opacity: 0.5; }
+  16%       { opacity: 1;   }
+  24%       { opacity: 0.2; }
+  36%       { opacity: 0.9; }
+  48%       { opacity: 0.5; }
+  60%       { opacity: 1;   }
+  72%       { opacity: 0.3; }
+  84%       { opacity: 0.85;}
+  92%       { opacity: 0.6; }
+}
+
+/* 17. Spiral in — rotates and scales in together */
+@keyframes moonSpiralIn {
+  0%   { transform: rotate(-200deg) scale(0.05); opacity: 0; }
+  100% { transform: rotate(0deg)    scale(1);    opacity: 1; }
+}
+
+/* 18. Rock to sleep — slows from rocking to still */
+@keyframes moonRockSlow {
+  0%   { transform: rotate(-15deg); }
+  20%  { transform: rotate(12deg);  }
+  40%  { transform: rotate(-8deg);  }
+  60%  { transform: rotate(5deg);   }
+  80%  { transform: rotate(-2deg);  }
+  100% { transform: rotate(0deg);   }
+}
+
+/* 19. Bounce up — springs upward then settles */
+@keyframes moonBounceUp {
+  0%   { transform: translateY(0);    }
+  30%  { transform: translateY(-28px);}
+  50%  { transform: translateY(0);    }
+  65%  { transform: translateY(-12px);}
+  80%  { transform: translateY(0);    }
+  90%  { transform: translateY(-5px); }
+  100% { transform: translateY(0);    }
+}
+
+/* 20. Pulse ring — quick bold pop then settles */
+@keyframes moonPop {
+  0%   { transform: scale(1);    }
+  20%  { transform: scale(1.4);  }
+  40%  { transform: scale(0.88); }
+  60%  { transform: scale(1.15); }
+  80%  { transform: scale(0.96); }
+  100% { transform: scale(1);    }
+}

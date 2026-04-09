@@ -9,6 +9,30 @@ import BedtimeScreen from "@/components/screens/BedtimeScreen";
 
 type ScreenType = "morning" | "lunchtime" | "evening" | "bedtime";
 
+/** Moon animation pool — one picked at random each time bedtime thank-you appears */
+const MOON_ANIMATIONS: string[] = [
+  "moonFloat      3s   ease-in-out infinite",          // 1  gentle bob
+  "moonBreath     5s   ease-in-out infinite",          // 2  slow breathe
+  "moonSway       4s   ease-in-out infinite",          // 3  pendulum rock
+  "moonRise       0.9s ease-out      forwards",        // 4  rises from below
+  "moonSpin       12s  linear        infinite",        // 5  dreamy full spin
+  "moonTwinkle    3.5s ease-in-out   infinite",        // 6  gentle shimmer
+  "moonDrift      6s   ease-in-out   infinite",        // 7  tide sway
+  "moonHeartbeat  2.2s ease-in-out   infinite",        // 8  double pulse
+  "moonZoomIn     0.7s cubic-bezier(0.34,1.56,0.64,1) forwards", // 9  spring in
+  "moonFadeIn     1.8s ease-in       forwards",        // 10 slow appear
+  "moonDrop       0.75s ease-out     forwards",        // 11 drop & bounce
+  "moonShimmer    2.5s ease-in-out   infinite",        // 12 glow pulse
+  "moonOrbit      5s   linear        infinite",        // 13 slow orbit
+  "moonNod        3s   ease-in-out   infinite",        // 14 forward nod
+  "moonWobble     0.9s ease-in-out   forwards",        // 15 quick jiggle
+  "moonFlicker    5s   linear        infinite",        // 16 starlight blink
+  "moonSpiralIn   1s   ease-out      forwards",        // 17 spiral materialise
+  "moonRockSlow   1.6s ease-in-out   forwards",        // 18 rocks to stillness
+  "moonBounceUp   1.1s ease-in-out   forwards",        // 19 springing bounce
+  "moonPop        0.7s ease-in-out   forwards",        // 20 bold pop
+];
+
 const BOOK_QUOTES = [
   "Your pain is real, and understanding it can loosen its grip.",
   "A sensitized nervous system can change.",
@@ -113,6 +137,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [savedFlash,          setSavedFlash]           = useState(false);
   const [showBookReminder,    setShowBookReminder]     = useState(false);
   const [bookQuoteIndex,      setBookQuoteIndex]       = useState(0);
+  const [moonAnimIndex,       setMoonAnimIndex]        = useState(0);
 
   // After save, show a brief "Thanks" flash on the form screen then switch to thank-you
   useEffect(() => {
@@ -126,6 +151,9 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   // includes today if PT was already logged via the button earlier.
   useEffect(() => {
     if (!thankYou) return;
+    if (screen === "bedtime") {
+      setMoonAnimIndex(Math.floor(Math.random() * MOON_ANIMATIONS.length));
+    }
     setPtYesterday("loading");
     setPtStreak(0);
     setPtTwiceStreak(0);
@@ -405,7 +433,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                     <p className="text-lg font-medium text-gray-600 pt-1">
                       Sleep well — good night.
                     </p>
-                    <span style={{ fontSize: "5.5rem", lineHeight: 1 }}>🌙</span>
+                    <span style={{ fontSize: "5.5rem", lineHeight: 1, display: "inline-block", animation: MOON_ANIMATIONS[moonAnimIndex] }}>🌙</span>
                   </div>
                 )}
                 {/* Message if PT not done or still loading */}
@@ -419,7 +447,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                     {ptYesterday === "no" && (
                       <p className="text-xl font-medium text-gray-600">Sleep well — good night.</p>
                     )}
-                    <span style={{ fontSize: "5.5rem", lineHeight: 1 }}>🌙</span>
+                    <span style={{ fontSize: "5.5rem", lineHeight: 1, display: "inline-block", animation: MOON_ANIMATIONS[moonAnimIndex] }}>🌙</span>
                   </div>
                 )}
               </>
