@@ -86,6 +86,8 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [ptYesterday,     setPtYesterday]     = useState<PtYesterdayState>("loading");
   const [ptStreak,        setPtStreak]        = useState(0);
   const [ptTwiceStreak,   setPtTwiceStreak]   = useState(0);
+  const [ptToday,         setPtToday]         = useState<string | null>(null);
+  const [ptTodayPrev,     setPtTodayPrev]     = useState<string | null>(null);
 
   // Load PT status whenever the thank-you screen appears.
   // Bedtime checks today (just logged); other screens check yesterday.
@@ -95,7 +97,10 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     setPtYesterday("loading");
     setPtStreak(0);
     setPtTwiceStreak(0);
+    setPtToday(null);
+    setPtTodayPrev(null);
     loadPtForDate(ptDate);
+    loadPtToday();
   }, [thankYou, screen]);
 
   async function loadPtForDate(ptDate: string) {
@@ -166,6 +171,44 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
 
     if (value === "once" || value === "twice") {
       await calculatePtStreaks(yesterday);
+    }
+  }
+
+  // Load today's PT for the "I've done my PT today" button on the thank-you screen.
+  // For bedtime, pre-set undo reference so the button appears highlighted from the start.
+  async function loadPtToday() {
+    const { data } = await supabase
+      .from("pt_entries")
+      .select("completed")
+      .eq("entry_date", today)
+      .maybeSingle();
+    const val = data?.completed ?? null;
+    setPtToday(val);
+    if (screen === "bedtime" && val && val !== "no") {
+      setPtTodayPrev("no"); // enables highlight + undo on bedtime without user pressing first
+    }
+  }
+
+  async function handlePtTodayLog() {
+    const next = (!ptToday || ptToday === "no") ? "once" : "twice";
+    setPtTodayPrev(ptToday ?? "no");
+    setPtToday(next);
+    await supabase
+      .from("pt_entries")
+      .upsert({ entry_date: today, completed: next }, { onConflict: "entry_date" });
+  }
+
+  async function handlePtTodayUndo() {
+    const prev = ptTodayPrev;
+    setPtTodayPrev(null);
+    if (!prev || prev === "no") {
+      setPtToday(null);
+      await supabase.from("pt_entries").delete().eq("entry_date", today);
+    } else {
+      setPtToday(prev);
+      await supabase
+        .from("pt_entries")
+        .upsert({ entry_date: today, completed: prev }, { onConflict: "entry_date" });
     }
   }
 
@@ -274,6 +317,29 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                         PT exercise twice in a day streak: {ptTwiceStreak} {ptTwiceStreak === 1 ? "day" : "days"}
                       </p>
                     </div>
+
+                    {/* PT log today button — pre-highlighted for bedtime */}
+                    <div className="flex items-center gap-2">
+                      {ptToday === "twice" && ptTodayPrev === null ? (
+                        <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
+                          Done twice today ✓
+                        </div>
+                      ) : ptTodayPrev !== null ? (
+                        <>
+                          <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
+                            {ptToday === "twice" ? "Done twice today ✓" : "Done once today ✓"}
+                          </div>
+                          <button onClick={handlePtTodayUndo} className="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
+                            Undo
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={handlePtTodayLog} className="flex-1 py-2 rounded-lg bg-green-100 text-green-700 text-sm font-semibold border border-green-200">
+                          {ptToday === "once" ? "I've done PT a second time today" : "I've done my PT today"}
+                        </button>
+                      )}
+                    </div>
+
                     <p className="text-lg font-medium text-gray-600 pt-1">
                       Sleep well — good night. 🌙
                     </p>
@@ -366,6 +432,28 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                       <p className="font-bold text-blue-700">
                         Keep it up! Today, can you do them twice? 💪
                       </p>
+                    </div>
+
+                    {/* PT log today button */}
+                    <div className="flex items-center gap-2">
+                      {ptToday === "twice" && ptTodayPrev === null ? (
+                        <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
+                          Done twice today ✓
+                        </div>
+                      ) : ptTodayPrev !== null ? (
+                        <>
+                          <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
+                            {ptToday === "twice" ? "Done twice today ✓" : "Done once today ✓"}
+                          </div>
+                          <button onClick={handlePtTodayUndo} className="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
+                            Undo
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={handlePtTodayLog} className="flex-1 py-2 rounded-lg bg-green-100 text-green-700 text-sm font-semibold border border-green-200">
+                          {ptToday === "once" ? "I've done PT a second time today" : "I've done my PT today"}
+                        </button>
+                      )}
                     </div>
 
                     {/* Streak counts */}
