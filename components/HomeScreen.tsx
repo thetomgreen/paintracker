@@ -87,20 +87,22 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [ptStreak,        setPtStreak]        = useState(0);
   const [ptTwiceStreak,   setPtTwiceStreak]   = useState(0);
 
-  // Load PT yesterday status whenever the thank-you screen appears (non-bedtime only)
+  // Load PT status whenever the thank-you screen appears.
+  // Bedtime checks today (just logged); other screens check yesterday.
   useEffect(() => {
-    if (!thankYou || screen === "bedtime") return;
+    if (!thankYou) return;
+    const ptDate = screen === "bedtime" ? today : yesterday;
     setPtYesterday("loading");
     setPtStreak(0);
     setPtTwiceStreak(0);
-    loadPtYesterday();
+    loadPtForDate(ptDate);
   }, [thankYou, screen]);
 
-  async function loadPtYesterday() {
+  async function loadPtForDate(ptDate: string) {
     const { data } = await supabase
       .from("pt_entries")
       .select("completed")
-      .eq("entry_date", yesterday)
+      .eq("entry_date", ptDate)
       .maybeSingle();
 
     if (!data) {
@@ -112,15 +114,15 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     setPtYesterday(completed);
 
     if (completed === "once" || completed === "twice") {
-      await calculatePtStreaks();
+      await calculatePtStreaks(ptDate);
     }
   }
 
-  async function calculatePtStreaks() {
+  async function calculatePtStreaks(fromDate: string) {
     const { data } = await supabase
       .from("pt_entries")
       .select("entry_date, completed")
-      .lte("entry_date", yesterday)
+      .lte("entry_date", fromDate)
       .order("entry_date", { ascending: false });
 
     if (!data) return;
@@ -132,7 +134,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     let streakBroken = false;
     let twiceStreakBroken = false;
 
-    const d = new Date(yesterday + "T12:00:00");
+    const d = new Date(fromDate + "T12:00:00");
     for (let i = 0; i < 3650; i++) {
       const dateStr = d.toLocaleDateString("en-CA");
       const completed = entryMap.get(dateStr);
@@ -163,7 +165,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     setPtYesterday(value);
 
     if (value === "once" || value === "twice") {
-      await calculatePtStreaks();
+      await calculatePtStreaks(yesterday);
     }
   }
 
@@ -245,10 +247,47 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
 
             {screen === "bedtime" ? (
               <>
-                <span className="text-6xl">🌙</span>
-                <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                  Thanks, and sleep well — good night.
-                </p>
+                {/* Streak content if PT done today (no "keep it up" callout) */}
+                {(ptYesterday === "once" || ptYesterday === "twice") && (
+                  <div className="w-full max-w-sm space-y-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-2xl">📋✅</span>
+                      <p className="text-lg font-medium text-gray-700">Thanks for entering your data.</p>
+                    </div>
+                    <p className="text-xl font-semibold text-gray-800">
+                      You&apos;re on a {ptStreak} day streak with your PT exercises — great work!
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <span className="text-6xl">🤸</span>
+                      <span
+                        className="font-black leading-none text-transparent bg-clip-text"
+                        style={{ fontSize: "5rem", backgroundImage: "linear-gradient(135deg, #22c55e, #16a34a)" }}
+                      >
+                        {ptStreak}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-lg font-bold text-emerald-600">
+                        PT exercise streak: {ptStreak} {ptStreak === 1 ? "day" : "days"}
+                      </p>
+                      <p className={`text-base font-semibold ${ptTwiceStreak > 0 ? "text-purple-600" : "text-red-500"}`}>
+                        PT exercise twice in a day streak: {ptTwiceStreak} {ptTwiceStreak === 1 ? "day" : "days"}
+                      </p>
+                    </div>
+                    <p className="text-lg font-medium text-gray-600 pt-1">
+                      Sleep well — good night. 🌙
+                    </p>
+                  </div>
+                )}
+                {/* Regular message if PT not done or still loading */}
+                {(ptYesterday === "loading" || ptYesterday === "missing" || ptYesterday === "no") && (
+                  <>
+                    <span className="text-6xl">🌙</span>
+                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                      Thanks, and sleep well — good night.
+                    </p>
+                  </>
+                )}
               </>
             ) : (
               <>
