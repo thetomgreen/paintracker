@@ -520,7 +520,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                             <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
                               {ptToday === "twice" ? "Done twice today ✓" : "Done once today ✓"}
                             </div>
-                            <button onClick={handlePtTodayUndo} className="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
+                            <button onClick={handlePtTodayUndo} className="py-2 w-20 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
                               Undo
                             </button>
                           </>
