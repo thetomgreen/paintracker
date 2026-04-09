@@ -551,7 +551,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                             PT exercise twice in a day streak: {twiceDisplay} {twiceDisplay === 1 ? "day" : "days"}
                           </p>
                           {optimistic && (
-                            <p className="text-sm text-gray-500">(if you do PT a second time today)</p>
+                            <p className="text-sm font-semibold text-purple-600">(if you do PT a second time today)</p>
                           )}
                         </div>
                       );
