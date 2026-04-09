@@ -337,30 +337,24 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                     </div>
 
                     <p className="text-lg font-medium text-gray-600 pt-1">
-                      Sleep well — good night. 🌙
+                      Sleep well — good night.
                     </p>
+                    <span style={{ fontSize: "5.5rem", lineHeight: 1 }}>🌙</span>
                   </div>
                 )}
                 {/* Message if PT not done or still loading */}
                 {ptYesterday !== "once" && ptYesterday !== "twice" && (
-                  <>
-                    {ptYesterday !== "no" && <span className="text-6xl">🌙</span>}
-                    <div className="space-y-2">
-                      <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                        {ptYesterday === "no"
-                          ? "No PT today - sometimes we all need a break - back on it tomorrow!"
-                          : "Thanks, and sleep well — good night."}
-                      </p>
-                      {ptYesterday === "no" && (
-                        <>
-                          <div className="flex justify-center">
-                            <span className="text-6xl">🌙</span>
-                          </div>
-                          <p className="text-xl font-medium text-gray-600">Sleep well — good night.</p>
-                        </>
-                      )}
-                    </div>
-                  </>
+                  <div className="space-y-4 text-center">
+                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                      {ptYesterday === "no"
+                        ? "No PT today - sometimes we all need a break - back on it tomorrow!"
+                        : "Thanks, and sleep well — good night."}
+                    </p>
+                    {ptYesterday === "no" && (
+                      <p className="text-xl font-medium text-gray-600">Sleep well — good night.</p>
+                    )}
+                    <span style={{ fontSize: "5.5rem", lineHeight: 1 }}>🌙</span>
+                  </div>
                 )}
               </>
             ) : (
