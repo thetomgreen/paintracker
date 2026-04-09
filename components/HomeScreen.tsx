@@ -86,9 +86,11 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [ptYesterday,     setPtYesterday]     = useState<PtYesterdayState>("loading");
   const [ptStreak,        setPtStreak]        = useState(0);
   const [ptTwiceStreak,   setPtTwiceStreak]   = useState(0);
-  const [ptToday,         setPtToday]         = useState<string | null>(null);
-  const [ptTodayPrev,     setPtTodayPrev]     = useState<string | null>(null);
-  const [streakAnimKey,   setStreakAnimKey]    = useState(0);
+  const [ptToday,             setPtToday]             = useState<string | null>(null);
+  const [ptTodayPrev,         setPtTodayPrev]         = useState<string | null>(null);
+  const [streakAnimKey,       setStreakAnimKey]        = useState(0);
+  const [ptStreakSaved,       setPtStreakSaved]        = useState(0);
+  const [ptTwiceStreakSaved,  setPtTwiceStreakSaved]   = useState(0);
 
   // Load PT status whenever the thank-you screen appears.
   // Bedtime checks today (just logged); other screens check yesterday.
@@ -187,6 +189,9 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
 
   async function handlePtTodayLog() {
     const next = (!ptToday || ptToday === "no") ? "once" : "twice";
+    // Save current streaks so undo can restore them exactly
+    setPtStreakSaved(ptStreak);
+    setPtTwiceStreakSaved(ptTwiceStreak);
     setPtTodayPrev(ptToday ?? "no");
     setPtToday(next);
     await supabase
@@ -203,17 +208,15 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     if (!prev || prev === "no") {
       setPtToday(null);
       await supabase.from("pt_entries").delete().eq("entry_date", today);
-      // Quietly revert to yesterday-based streak
-      await calculatePtStreaks(yesterday);
     } else {
       setPtToday(prev);
       await supabase
         .from("pt_entries")
         .upsert({ entry_date: today, completed: prev }, { onConflict: "entry_date" });
-      // Quietly recalculate (going back to once still keeps today in the chain)
-      await calculatePtStreaks(today);
     }
-    // No animation on undo
+    // Quietly restore the saved streak values — no recalculation, no animation
+    setPtStreak(ptStreakSaved);
+    setPtTwiceStreak(ptTwiceStreakSaved);
   }
 
   // Load notification times once (for button labels)
