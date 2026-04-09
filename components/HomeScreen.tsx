@@ -91,6 +91,14 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [streakAnimKey,       setStreakAnimKey]        = useState(0);
   const [ptStreakSaved,       setPtStreakSaved]        = useState(0);
   const [ptTwiceStreakSaved,  setPtTwiceStreakSaved]   = useState(0);
+  const [savedFlash,          setSavedFlash]           = useState(false);
+
+  // After save, show a brief "Thanks" flash on the form screen then switch to thank-you
+  useEffect(() => {
+    if (!savedFlash) return;
+    const t = setTimeout(() => { setSavedFlash(false); setThankYou(true); }, 1500);
+    return () => clearTimeout(t);
+  }, [savedFlash]);
 
   // Load PT status whenever the thank-you screen appears.
   // Always fetches both yesterday and today so the streak correctly
@@ -233,6 +241,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     async function checkAlreadyDone() {
       setChecking(true);
       setThankYou(false);
+      setSavedFlash(false);
       if (!supabase) { setChecking(false); return; }
       if (skipAlreadyDoneCheck.current) {
         skipAlreadyDoneCheck.current = false;
@@ -269,6 +278,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
       ]);
     }
     setThankYou(false);
+    setSavedFlash(false);
     setResetKey((k) => k + 1);
     setResetting(false);
   }
@@ -290,7 +300,14 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-8">
-        {checking ? null : thankYou ? (
+        {checking ? null : savedFlash ? (
+          /* Brief "Thanks" flash shown on the form screen before transitioning */
+          <div className="flex flex-col items-center justify-center gap-5 py-24 text-center"
+               style={{ animation: "ptFlashIn 0.3s ease-out" }}>
+            <span className="text-7xl">✅</span>
+            <p className="text-2xl font-semibold text-green-700">Thanks for entering your data.</p>
+          </div>
+        ) : thankYou ? (
           <div className="flex flex-col items-center justify-center gap-5 py-12 text-center">
 
             {screen === "bedtime" ? (
@@ -298,10 +315,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                 {/* Streak content if PT done today (no "keep it up" callout) */}
                 {(ptYesterday === "once" || ptYesterday === "twice") && (
                   <div className="w-full max-w-sm space-y-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-2xl">📋✅</span>
-                      <p className="text-lg font-medium text-gray-700">Thanks for entering your data.</p>
-                    </div>
                     <p className="text-xl font-semibold text-gray-800">
                       You&apos;re on a {ptStreak} day streak with your PT exercises — great work!
                     </p>
@@ -354,17 +367,13 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
               <>
                 {/* ── Loading ── */}
                 {ptYesterday === "loading" && (
-                  <>
-                    <span className="text-6xl">🤸</span>
-                    <p className="text-xl font-medium text-gray-700">Thanks for entering your data.</p>
-                  </>
+                  <span className="text-6xl">🤸</span>
                 )}
 
                 {/* ── Ask about yesterday ── */}
                 {ptYesterday === "missing" && (
                   <>
                     <span className="text-6xl">🤸</span>
-                    <p className="text-xl font-medium text-gray-700">Thanks for entering your data.</p>
                     <div className="bg-white rounded-xl border border-gray-200 p-4 w-full max-w-sm text-left space-y-3">
                       <p className="font-medium text-gray-800">Did you do your PT exercises yesterday?</p>
                       <div className="flex gap-2">
@@ -385,12 +394,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                 {/* ── Streak display ── */}
                 {(ptYesterday === "once" || ptYesterday === "twice") && (
                   <div className="w-full max-w-sm space-y-4">
-                    {/* Thanks header */}
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-2xl">📋✅</span>
-                      <p className="text-lg font-medium text-gray-700">Thanks for entering your data.</p>
-                    </div>
-
                     {/* Streak headline */}
                     <p className="text-xl font-semibold text-gray-800">
                       You&apos;re on a {ptStreak} day streak with your PT exercises — great work!
@@ -412,34 +415,34 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                       </span>
                     </div>
 
-                    {/* Keep it up callout */}
-                    <div className="rounded-xl px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
-                      <p className="font-bold text-blue-700">
-                        Keep it up! Today, can you do them twice? 💪
-                      </p>
-                    </div>
+                    {/* Keep it up + log button — hidden once already done twice */}
+                    {ptToday !== "twice" && (
+                      <div className="rounded-xl px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+                        <p className="font-bold text-blue-700">
+                          Keep it up! Today, can you do them twice? 💪
+                        </p>
+                      </div>
+                    )}
 
-                    {/* PT log today button */}
-                    <div className="flex items-center gap-2">
-                      {ptToday === "twice" && ptTodayPrev === null ? (
-                        <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
-                          Done twice today ✓
-                        </div>
-                      ) : ptTodayPrev !== null ? (
-                        <>
-                          <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
-                            {ptToday === "twice" ? "Done twice today ✓" : "Done once today ✓"}
-                          </div>
-                          <button onClick={handlePtTodayUndo} className="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
-                            Undo
+                    {/* PT log today button — hidden once done twice (unless undo in play) */}
+                    {(ptToday !== "twice" || ptTodayPrev !== null) && (
+                      <div className="flex items-center gap-2">
+                        {ptTodayPrev !== null ? (
+                          <>
+                            <div className="flex-1 py-2 rounded-lg bg-green-500 text-white text-sm font-semibold text-center">
+                              {ptToday === "twice" ? "Done twice today ✓" : "Done once today ✓"}
+                            </div>
+                            <button onClick={handlePtTodayUndo} className="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 text-xs font-medium shrink-0">
+                              Undo
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={handlePtTodayLog} className="flex-1 py-2 rounded-lg bg-green-100 text-green-700 text-sm font-semibold border border-green-200">
+                            {ptToday === "once" ? "I've done PT a second time today" : "I've done my PT today"}
                           </button>
-                        </>
-                      ) : (
-                        <button onClick={handlePtTodayLog} className="flex-1 py-2 rounded-lg bg-green-100 text-green-700 text-sm font-semibold border border-green-200">
-                          {ptToday === "once" ? "I've done PT a second time today" : "I've done my PT today"}
-                        </button>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Streak counts */}
                     <div
@@ -485,10 +488,10 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
           </div>
         ) : (
           <>
-            {screen === "morning"   && <MorningScreen key={resetKey} date={today} onSaved={() => setThankYou(true)} />}
-            {screen === "lunchtime" && <PainScreen    key={resetKey} date={today} promptType="afternoon" onSaved={() => setThankYou(true)} />}
-            {screen === "evening"   && <PainScreen    key={resetKey} date={today} promptType="evening"   onSaved={() => setThankYou(true)} />}
-            {screen === "bedtime"   && <BedtimeScreen key={resetKey} date={today} onSaved={() => setThankYou(true)} />}
+            {screen === "morning"   && <MorningScreen key={resetKey} date={today} onSaved={() => setSavedFlash(true)} />}
+            {screen === "lunchtime" && <PainScreen    key={resetKey} date={today} promptType="afternoon" onSaved={() => setSavedFlash(true)} />}
+            {screen === "evening"   && <PainScreen    key={resetKey} date={today} promptType="evening"   onSaved={() => setSavedFlash(true)} />}
+            {screen === "bedtime"   && <BedtimeScreen key={resetKey} date={today} onSaved={() => setSavedFlash(true)} />}
           </>
         )}
       </main>
