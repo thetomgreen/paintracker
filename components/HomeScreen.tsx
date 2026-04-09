@@ -533,18 +533,29 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                     )}
 
                     {/* Streak counts */}
-                    <div
-                      key={streakAnimKey}
-                      className="space-y-2"
-                      style={{ animation: streakAnimKey > 0 ? "ptStreakSlide 0.45s ease-out 0.15s both" : "none" }}
-                    >
-                      <p className="text-lg font-bold text-emerald-600">
-                        PT exercise streak: {ptStreak} {ptStreak === 1 ? "day" : "days"}
-                      </p>
-                      <p className={`text-base font-semibold ${ptTwiceStreak > 0 ? "text-purple-600" : "text-red-500"}`}>
-                        PT exercise twice in a day streak: {ptTwiceStreak} {ptTwiceStreak === 1 ? "day" : "days"}
-                      </p>
-                    </div>
+                    {(() => {
+                      // When the user has logged PT once today (first button press) and had a
+                      // twice streak going, show an optimistic count as if they'll do it again
+                      const optimistic = ptTodayPrev !== null && ptToday === "once" && ptTwiceStreakSaved > 0;
+                      const twiceDisplay = optimistic ? ptTwiceStreakSaved + 1 : ptTwiceStreak;
+                      return (
+                        <div
+                          key={streakAnimKey}
+                          className="space-y-2"
+                          style={{ animation: streakAnimKey > 0 ? "ptStreakSlide 0.45s ease-out 0.15s both" : "none" }}
+                        >
+                          <p className="text-lg font-bold text-emerald-600">
+                            PT exercise streak: {ptStreak} {ptStreak === 1 ? "day" : "days"}
+                          </p>
+                          <p className={`text-base font-semibold ${twiceDisplay > 0 ? "text-purple-600" : "text-red-500"}`}>
+                            PT exercise twice in a day streak: {twiceDisplay} {twiceDisplay === 1 ? "day" : "days"}
+                          </p>
+                          {optimistic && (
+                            <p className="text-sm text-gray-500">(if you do PT a second time today)</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
