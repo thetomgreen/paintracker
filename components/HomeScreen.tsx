@@ -241,32 +241,32 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-8">
         {checking ? null : thankYou ? (
-          <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
-            <span className="text-6xl">{THANK_YOU_EMOJI[screen]}</span>
+          <div className="flex flex-col items-center justify-center gap-5 py-12 text-center">
 
             {screen === "bedtime" ? (
-              <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                {THANK_YOU_MSG[screen]}
-              </p>
+              <>
+                <span className="text-6xl">🌙</span>
+                <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                  Thanks, and sleep well — good night.
+                </p>
+              </>
             ) : (
               <>
-                {/* PT loading — show plain thanks while we fetch */}
+                {/* ── Loading ── */}
                 {ptYesterday === "loading" && (
-                  <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                    Thanks for entering your data.
-                  </p>
+                  <>
+                    <span className="text-6xl">🤸</span>
+                    <p className="text-xl font-medium text-gray-700">Thanks for entering your data.</p>
+                  </>
                 )}
 
-                {/* No pt_entries row for yesterday — ask the user */}
+                {/* ── Ask about yesterday ── */}
                 {ptYesterday === "missing" && (
                   <>
-                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                      Thanks for entering your data.
-                    </p>
+                    <span className="text-6xl">🤸</span>
+                    <p className="text-xl font-medium text-gray-700">Thanks for entering your data.</p>
                     <div className="bg-white rounded-xl border border-gray-200 p-4 w-full max-w-sm text-left space-y-3">
-                      <p className="font-medium text-gray-800">
-                        Did you do your PT exercises yesterday?
-                      </p>
+                      <p className="font-medium text-gray-800">Did you do your PT exercises yesterday?</p>
                       <div className="flex gap-2">
                         {(["no", "once", "twice"] as const).map((v) => (
                           <button
@@ -282,27 +282,61 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
                   </>
                 )}
 
-                {/* Did exercises — show streak */}
+                {/* ── Streak display ── */}
                 {(ptYesterday === "once" || ptYesterday === "twice") && (
-                  <>
-                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                      Thanks for entering your data. You&apos;re on a {ptStreak} day streak
-                      with your PT exercises — great work! Keep it up today — can you do them twice?
-                    </p>
-                    <div className="text-sm text-gray-500 space-y-1 w-full max-w-sm text-left bg-gray-50 rounded-lg px-4 py-3">
-                      <p>PT exercise streak: <span className="font-semibold text-gray-700">{ptStreak} {ptStreak === 1 ? "day" : "days"}</span></p>
-                      {ptTwiceStreak > 0 && (
-                        <p>PT exercise twice in a day streak: <span className="font-semibold text-gray-700">{ptTwiceStreak} {ptTwiceStreak === 1 ? "day" : "days"}</span></p>
-                      )}
+                  <div className="w-full max-w-sm space-y-4">
+                    {/* Thanks header */}
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-2xl">📋✅</span>
+                      <p className="text-lg font-medium text-gray-700">Thanks for entering your data.</p>
                     </div>
-                  </>
+
+                    {/* Streak headline */}
+                    <p className="text-xl font-semibold text-gray-800">
+                      You&apos;re on a day streak with your PT exercises — great work!
+                    </p>
+
+                    {/* Stretching icon + big streak number */}
+                    <div className="flex items-center justify-center gap-3">
+                      <span className="text-6xl">🤸</span>
+                      <span
+                        className="font-black leading-none text-transparent bg-clip-text"
+                        style={{
+                          fontSize: "5rem",
+                          backgroundImage: "linear-gradient(135deg, #f97316, #ec4899)",
+                        }}
+                      >
+                        {ptStreak}
+                      </span>
+                    </div>
+
+                    {/* Keep it up callout */}
+                    <div className="rounded-xl px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+                      <p className="font-bold text-blue-700">
+                        Keep it up! Today, can you do them twice? 💪
+                      </p>
+                    </div>
+
+                    {/* Streak counts */}
+                    <div className="space-y-2">
+                      <p className="text-lg font-bold text-emerald-600">
+                        PT exercise streak: {ptStreak} {ptStreak === 1 ? "day" : "days"}
+                      </p>
+                      <p className={`text-base font-semibold ${ptTwiceStreak > 0 ? "text-purple-600" : "text-red-500"}`}>
+                        PT exercise twice in a day streak: {ptTwiceStreak} {ptTwiceStreak === 1 ? "day" : "days"}
+                      </p>
+                    </div>
+                  </div>
                 )}
 
-                {/* Missed exercises yesterday */}
+                {/* ── Missed yesterday ── */}
                 {ptYesterday === "no" && (
-                  <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
-                    You missed your exercises yesterday. That&apos;s ok, you can get back at it today!
-                  </p>
+                  <>
+                    <span className="text-6xl">🤸</span>
+                    <p className="text-xl font-medium text-gray-700 leading-relaxed max-w-sm">
+                      You missed your exercises yesterday. That&apos;s ok, you can get back at it today!
+                    </p>
+                  </>
                 )}
               </>
             )}
