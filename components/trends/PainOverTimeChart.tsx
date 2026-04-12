@@ -63,6 +63,8 @@ export default function PainOverTimeChart({
   // Thin out X labels for longer ranges
   const tickInterval = rangeDays <= 7 ? 0 : rangeDays <= 30 ? 2 : rangeDays <= 90 ? 6 : 13;
 
+  const yMax = Math.max(...data.map(d => d.max));
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Pain Over Time</h3>
@@ -75,7 +77,7 @@ export default function PainOverTimeChart({
             tick={{ fontSize: 11, fill: "#9ca3af" }}
             interval={tickInterval}
           />
-          <YAxis domain={[0, 10]} tick={{ fontSize: 11, fill: "#9ca3af" }} />
+          <YAxis domain={[0, yMax]} tick={{ fontSize: 11, fill: "#9ca3af" }} />
           <Tooltip content={<CustomTooltip />} />
           <Area
             dataKey="max"
