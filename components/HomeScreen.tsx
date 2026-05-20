@@ -84,14 +84,6 @@ const NEXT_SCREEN: Partial<Record<ScreenType, { screen: ScreenType; timeKey: str
 
 // Ordered list of screens (earliest to latest in the day)
 const SCREEN_ORDER: ScreenType[] = ["morning", "lunchtime", "evening", "bedtime"];
-const screenIndex = (s: ScreenType) => SCREEN_ORDER.indexOf(s);
-
-// For the "back to previous period" backfill button
-const PREV_SCREEN: Partial<Record<ScreenType, ScreenType>> = {
-  lunchtime: "morning",
-  evening:   "lunchtime",
-  bedtime:   "evening",
-};
 
 function getPreviousPeriodKey(today: string, yesterday: string, screen: ScreenType): string {
   if (screen === "morning")   return `${yesterday}-evening`;
@@ -129,8 +121,19 @@ type PtYesterdayState = "loading" | "missing" | "no" | "once" | "twice";
 export default function HomeScreen({ devMode = false, promptParam }: { devMode?: boolean; promptParam?: string }) {
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device local time
   const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString("en-CA"); })();
+
+  // Linear sequence of all backfillable periods, oldest first: yesterday morning → today bedtime
+  const PERIOD_ORDER: { date: string; screen: ScreenType }[] = [
+    ...SCREEN_ORDER.map((s) => ({ date: yesterday, screen: s })),
+    ...SCREEN_ORDER.map((s) => ({ date: today,     screen: s })),
+  ];
+  const periodKey = (date: string, s: ScreenType) => `${date}|${s}`;
+  const periodIdx = (date: string, s: ScreenType) =>
+    PERIOD_ORDER.findIndex((p) => p.date === date && p.screen === s);
+
   const initialScreen = (promptParam && promptParam in SCREEN_CONFIG) ? promptParam as ScreenType : getCurrentScreen();
   const [screen,          setScreen]          = useState<ScreenType>(initialScreen);
+  const [entryDate,       setEntryDate]       = useState<string>(today);
   const [thankYou,        setThankYou]        = useState(false);
   const skipAlreadyDoneCheck = useRef(!!promptParam && promptParam in SCREEN_CONFIG);
   const [resetKey,        setResetKey]        = useState(0);
@@ -149,10 +152,11 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [showBookReminder,    setShowBookReminder]     = useState(false);
   const [bookQuoteIndex,      setBookQuoteIndex]       = useState(0);
   const [moonAnimIndex,       setMoonAnimIndex]        = useState(0);
-  // Screens that have no pain_entries row for today — drives the "Back to X" and "Enter X now" backfill buttons
-  const [missingPeriods,      setMissingPeriods]       = useState<Set<ScreenType>>(new Set());
-  // The screen the user first landed on — anchors the 2-step backward limit
-  const originalScreenRef = useRef<ScreenType>(initialScreen);
+  // Periods (across today + yesterday) that have no pain_entries row — drives the "Back to X" and "Enter X now" backfill buttons.
+  // Keyed by `${date}|${screen}`.
+  const [missingPeriods,      setMissingPeriods]       = useState<Set<string>>(new Set());
+  // Index in PERIOD_ORDER of the period the user first landed on — caps forward auto-advance so we don't prompt for a period that hasn't happened yet by clock time.
+  const originalPeriodIdxRef = useRef<number>(periodIdx(today, initialScreen));
 
   // After save, show a brief "Thanks" flash on the form screen then switch to thank-you
   useEffect(() => {
@@ -313,23 +317,26 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
         setChecking(false);
         return;
       }
-      // Fetch all periods for today so we can show the backfill buttons.
-      const { data: todaysEntries } = await supabase
+      // Fetch all periods for today AND yesterday so we can show backfill buttons across both days.
+      const { data: dayEntries } = await supabase
         .from("pain_entries")
-        .select("prompt_type")
-        .eq("entry_date", today)
+        .select("entry_date, prompt_type")
+        .in("entry_date", [today, yesterday])
         .in("prompt_type", SCREEN_ORDER.map((s) => DB_PROMPT_TYPE[s]));
-      const donePrompts = new Set<string>(
-        (todaysEntries ?? []).map((e: { prompt_type: string }) => e.prompt_type)
+      const donePairs = new Set<string>(
+        (dayEntries ?? []).map((e: { entry_date: string; prompt_type: string }) => `${e.entry_date}|${e.prompt_type}`)
       );
-      const missing = new Set<ScreenType>(
-        SCREEN_ORDER.filter((s) => !donePrompts.has(DB_PROMPT_TYPE[s]))
-      );
+      const missing = new Set<string>();
+      for (const p of PERIOD_ORDER) {
+        if (!donePairs.has(`${p.date}|${DB_PROMPT_TYPE[p.screen]}`)) {
+          missing.add(periodKey(p.date, p.screen));
+        }
+      }
       setMissingPeriods(missing);
-      const currentDone = donePrompts.has(DB_PROMPT_TYPE[screen]);
+      const currentDone = donePairs.has(`${entryDate}|${DB_PROMPT_TYPE[screen]}`);
       if (currentDone) {
         setThankYou(true);
-      } else if (screen !== "bedtime") {
+      } else if (entryDate === today && screen !== "bedtime") {
         // 1-in-4 chance of showing the book reminder, but not two periods in a row
         const roll = Math.floor(Math.random() * 4) + 1;
         if (roll === 4) {
@@ -355,22 +362,33 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
       setChecking(false);
     }
     checkAlreadyDone();
-  }, [screen, today]);
+  }, [screen, entryDate, today]);
 
   const config   = SCREEN_CONFIG[screen];
-  const nextInfo = NEXT_SCREEN[screen];
+  const currentIdx = periodIdx(entryDate, screen);
+  const nextPeriod = currentIdx >= 0 && currentIdx < PERIOD_ORDER.length - 1 ? PERIOD_ORDER[currentIdx + 1] : null;
+  const prevPeriod = currentIdx > 0 ? PERIOD_ORDER[currentIdx - 1] : null;
+  // Scheduled-time metadata only applies when the next period is on today (yesterday is fully past).
+  const nextScheduledMeta = nextPeriod && nextPeriod.date === today ? NEXT_SCREEN[screen] : null;
 
   function switchScreen(s: ScreenType) {
     setScreen(s);
+    setEntryDate(today);
+  }
+
+  function switchPeriod(p: { date: string; screen: ScreenType }) {
+    setScreen(p.screen);
+    setEntryDate(p.date);
   }
 
   function handleSaved() {
-    // Optimistically mark the current screen as no longer missing so the
+    // Optimistically mark the current period as no longer missing so the
     // thank-you "Enter next data" backfill logic sees the right state
+    const key = periodKey(entryDate, screen);
     setMissingPeriods((p) => {
-      if (!p.has(screen)) return p;
+      if (!p.has(key)) return p;
       const next = new Set(p);
-      next.delete(screen);
+      next.delete(key);
       return next;
     });
     setSavedFlash(true);
@@ -389,8 +407,13 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     setThankYou(false);
     setSavedFlash(false);
     setShowBookReminder(false);
-    // All entries wiped — every screen is now missing until re-entered
-    setMissingPeriods(new Set(SCREEN_ORDER));
+    // Only today's entries were wiped — yesterday's missing state unchanged.
+    setMissingPeriods((prev) => {
+      const next = new Set(prev);
+      for (const s of SCREEN_ORDER) next.add(periodKey(today, s));
+      return next;
+    });
+    setEntryDate(today);
     setResetKey((k) => k + 1);
     setResetting(false);
   }
@@ -609,27 +632,30 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
             )}
 
             {(() => {
-              if (!nextInfo) return null;
-              const hasScheduledTime = !!notifTimes[nextInfo.timeKey];
+              if (!nextPeriod) return null;
+              const nextIsToday = nextPeriod.date === today;
+              const hasScheduledTime = !!nextScheduledMeta && !!notifTimes[nextScheduledMeta.timeKey];
               const withinScheduled =
-                hasScheduledTime && isWithin2HoursBefore(notifTimes[nextInfo.timeKey]);
+                nextIsToday && hasScheduledTime && nextScheduledMeta != null &&
+                isWithin2HoursBefore(notifTimes[nextScheduledMeta.timeKey]);
               // Backfill continue: next period has no data and is at or before
-              // the screen we originally landed on (i.e. we haven't overshot today)
-              const backfillOriginalIdx = screenIndex(originalScreenRef.current);
-              const backfillNextIdx = screenIndex(nextInfo.screen);
+              // the period we originally landed on (i.e. we haven't overshot the current clock period)
+              const nextIdx = currentIdx + 1;
               const backfillContinue =
-                missingPeriods.has(nextInfo.screen) &&
-                backfillNextIdx <= backfillOriginalIdx;
+                missingPeriods.has(periodKey(nextPeriod.date, nextPeriod.screen)) &&
+                nextIdx <= originalPeriodIdxRef.current;
               if (!withinScheduled && !backfillContinue) return null;
+              const labelPrefix = nextIsToday ? "" : "yesterday's ";
+              const labelText = `${labelPrefix}${SCREEN_CONFIG[nextPeriod.screen].label.toLowerCase()}`;
               return (
                 <button
-                  onClick={() => switchScreen(nextInfo.screen)}
+                  onClick={() => switchPeriod(nextPeriod)}
                   className="mt-2 px-6 py-4 bg-blue-500 text-white rounded-xl text-base font-semibold active:bg-blue-600"
                 >
-                  Enter {nextInfo.label} data now
-                  {hasScheduledTime && (
+                  Enter {labelText} data now
+                  {nextIsToday && hasScheduledTime && nextScheduledMeta && (
                     <span className="block text-sm font-normal opacity-80 mt-0.5">
-                      scheduled for {formatTime(notifTimes[nextInfo.timeKey])}
+                      scheduled for {formatTime(notifTimes[nextScheduledMeta.timeKey])}
                     </span>
                   )}
                 </button>
@@ -639,29 +665,27 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
         ) : (
           <>
             {(() => {
-              // Back-to-previous-period button: shown when the previous period has
-              // no data and is within 2 steps of the screen we originally landed on
-              const prevScreen = PREV_SCREEN[screen];
-              const originalIdx = screenIndex(originalScreenRef.current);
-              const prevIdx = prevScreen ? screenIndex(prevScreen) : -1;
-              const canGoBack =
-                !!prevScreen &&
-                missingPeriods.has(prevScreen) &&
-                originalIdx - prevIdx <= 2;
-              if (!canGoBack || !prevScreen) return null;
+              // Back-to-previous-period button: walks the full linear sequence (yesterday → today, 8 periods total).
+              // Only shown when the immediately-previous period has no data yet.
+              if (!prevPeriod) return null;
+              const prevKey = periodKey(prevPeriod.date, prevPeriod.screen);
+              if (!missingPeriods.has(prevKey)) return null;
+              const prevIsToday = prevPeriod.date === today;
+              const labelPrefix = prevIsToday ? "" : "yesterday's ";
+              const labelText = `${labelPrefix}${SCREEN_CONFIG[prevPeriod.screen].label.toLowerCase()}`;
               return (
                 <button
-                  onClick={() => switchScreen(prevScreen)}
+                  onClick={() => switchPeriod(prevPeriod)}
                   className="mb-4 w-full py-3 text-sm font-medium text-blue-600 bg-white border border-blue-200 rounded-xl active:bg-blue-50 flex items-center justify-center gap-1"
                 >
-                  ← Back to {SCREEN_CONFIG[prevScreen].label.toLowerCase()}
+                  ← Back to {labelText}
                 </button>
               );
             })()}
-            {screen === "morning"   && <MorningScreen key={resetKey} date={today} onSaved={handleSaved} />}
-            {screen === "lunchtime" && <PainScreen    key={resetKey} date={today} promptType="afternoon" onSaved={handleSaved} />}
-            {screen === "evening"   && <PainScreen    key={resetKey} date={today} promptType="evening"   onSaved={handleSaved} />}
-            {screen === "bedtime"   && <BedtimeScreen key={resetKey} date={today} onSaved={handleSaved} />}
+            {screen === "morning"   && <MorningScreen key={`${resetKey}|${entryDate}`} date={entryDate} onSaved={handleSaved} />}
+            {screen === "lunchtime" && <PainScreen    key={`${resetKey}|${entryDate}`} date={entryDate} promptType="afternoon" onSaved={handleSaved} />}
+            {screen === "evening"   && <PainScreen    key={`${resetKey}|${entryDate}`} date={entryDate} promptType="evening"   onSaved={handleSaved} />}
+            {screen === "bedtime"   && <BedtimeScreen key={`${resetKey}|${entryDate}`} date={entryDate} onSaved={handleSaved} />}
           </>
         )}
       </main>
