@@ -49,7 +49,7 @@ interface ComputedData {
   medInsights: MedInsights;
 }
 
-export default function TrendsPage() {
+export default function TrendsPage({ backHref = "/" }: { backHref?: string | null } = {}) {
   const [rangeDays, setRangeDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ComputedData | null>(null);
@@ -116,11 +116,13 @@ export default function TrendsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <Link href="/" className="text-sm font-medium text-blue-600">&larr; Back</Link>
-        <h1 className="text-xl font-bold text-gray-900">Trends</h1>
-        <div className="w-12" />
-      </header>
+      {backHref !== null && (
+        <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+          <Link href={backHref} className="text-sm font-medium text-blue-600">&larr; Back</Link>
+          <h1 className="text-xl font-bold text-gray-900">Trends</h1>
+          <div className="w-12" />
+        </header>
+      )}
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
         <TimeRangeSelector value={rangeDays} onChange={setRangeDays} />
