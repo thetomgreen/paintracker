@@ -3,6 +3,20 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import NoteField from "@/components/NoteField";
+import HalfToggle from "@/components/HalfToggle";
+
+/** Decompose a stored pain_level (possibly fractional) into integer + half flag. */
+function splitPain(v: number | null): { integer: number | null; half: boolean } {
+  if (v === null || v === undefined) return { integer: null, half: false };
+  const half = v % 1 !== 0;
+  const integer = Math.floor(v);
+  return { integer, half };
+}
+/** Combine integer + half flag into a savable value, or null if neither selected. */
+function combinePain(integer: number | null, half: boolean): number | null {
+  if (integer === null && !half) return null;
+  return (integer ?? 0) + (half ? 0.5 : 0);
+}
 
 const SLEEP_VALUES = ["terrible", "poor", "fair", "good", "fantastic"] as const;
 
@@ -36,7 +50,9 @@ function sectionClass(hasError: boolean) {
 export default function MorningScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
   const [sleepQuality,      setSleepQuality]      = useState<string | null>(null);
   const [painLastNight,     setPainLastNight]     = useState<number | null>(null);
+  const [painLastNightHalf, setPainLastNightHalf] = useState<boolean>(false);
   const [painNow,           setPainNow]           = useState<number | null>(null);
+  const [painNowHalf,       setPainNowHalf]       = useState<boolean>(false);
   const [oxyLastNight,      setOxyLastNight]      = useState<boolean | null>(null);
   const [saving,            setSaving]            = useState(false);
   const [saved,             setSaved]             = useState(false);
@@ -60,11 +76,15 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
       if (entry.prompt_type === "overnight") {
         setOvernightEntry(entry);
         setSleepQuality(entry.sleep_quality);
-        setPainLastNight(entry.pain_level);
+        const { integer, half } = splitPain(entry.pain_level);
+        setPainLastNight(integer);
+        setPainLastNightHalf(half);
       }
       if (entry.prompt_type === "morning") {
         setMorningEntry(entry);
-        setPainNow(entry.pain_level);
+        const { integer, half } = splitPain(entry.pain_level);
+        setPainNow(integer);
+        setPainNowHalf(half);
       }
     }
     if (medRes.data) {
@@ -80,28 +100,30 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
   }
 
   async function handleSave() {
-    const canSave = sleepQuality !== null && painLastNight !== null && painNow !== null && oxyLastNight !== null;
+    const painLastNightValue = combinePain(painLastNight, painLastNightHalf);
+    const painNowValue = combinePain(painNow, painNowHalf);
+    const canSave = sleepQuality !== null && painLastNightValue !== null && painNowValue !== null && oxyLastNight !== null;
     if (!canSave) { setShowErrors(true); return; }
 
     setSaving(true);
 
     if (overnightEntry) {
       await supabase.from("pain_entries")
-        .update({ sleep_quality: sleepQuality, pain_level: painLastNight })
+        .update({ sleep_quality: sleepQuality, pain_level: painLastNightValue })
         .eq("id", overnightEntry.id);
     } else {
       const { data } = await supabase.from("pain_entries").insert({
-        prompt_type: "overnight", pain_level: painLastNight,
+        prompt_type: "overnight", pain_level: painLastNightValue,
         sleep_quality: sleepQuality, entry_date: date,
       }).select().single();
       if (data) setOvernightEntry(data);
     }
 
     if (morningEntry) {
-      await supabase.from("pain_entries").update({ pain_level: painNow }).eq("id", morningEntry.id);
+      await supabase.from("pain_entries").update({ pain_level: painNowValue }).eq("id", morningEntry.id);
     } else {
       const { data } = await supabase.from("pain_entries").insert({
-        prompt_type: "morning", pain_level: painNow, entry_date: date,
+        prompt_type: "morning", pain_level: painNowValue, entry_date: date,
       }).select().single();
       if (data) setMorningEntry(data);
     }
@@ -134,7 +156,11 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
     onSaved();
   }
 
-  const canSave = sleepQuality !== null && painLastNight !== null && painNow !== null && oxyLastNight !== null;
+  const canSave =
+    sleepQuality !== null &&
+    combinePain(painLastNight, painLastNightHalf) !== null &&
+    combinePain(painNow, painNowHalf) !== null &&
+    oxyLastNight !== null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -144,17 +170,23 @@ export default function MorningScreen({ date, onSaved }: { date: string; onSaved
         <SleepRating value={sleepQuality} onChange={(v) => { setSleepQuality(v); setSaved(false); }} />
       </div>
 
-      <div className={sectionClass(showErrors && painLastNight === null)}>
+      <div className={sectionClass(showErrors && combinePain(painLastNight, painLastNightHalf) === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How was your level of pain last night?</h2>
-        <PainRow value={painLastNight} onChange={(v) => { setPainLastNight(v); setSaved(false); }} />
-        <div className="mt-3">
-          <NoteField label="sleep" value={sleepNote} onChange={setSleepNote} />
+        <PainRow value={painLastNight} half={painLastNightHalf} onChange={(v) => { setPainLastNight(v); setSaved(false); }} />
+        <div className="mt-3 flex items-start gap-2">
+          <div className="flex-1">
+            <NoteField label="sleep" value={sleepNote} onChange={setSleepNote} />
+          </div>
+          <HalfToggle value={painLastNightHalf} onChange={(v) => { setPainLastNightHalf(v); setSaved(false); }} />
         </div>
       </div>
 
-      <div className={sectionClass(showErrors && painNow === null)}>
+      <div className={sectionClass(showErrors && combinePain(painNow, painNowHalf) === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How is your level of pain now?</h2>
-        <PainRow value={painNow} onChange={(v) => { setPainNow(v); setSaved(false); }} />
+        <PainRow value={painNow} half={painNowHalf} onChange={(v) => { setPainNow(v); setSaved(false); }} />
+        <div className="mt-3 flex justify-end">
+          <HalfToggle value={painNowHalf} onChange={(v) => { setPainNowHalf(v); setSaved(false); }} />
+        </div>
       </div>
 
       <div className={sectionClass(showErrors && oxyLastNight === null)}>
@@ -224,20 +256,23 @@ function SleepRating({ value, onChange }: { value: string | null; onChange: (v: 
   );
 }
 
-export function PainRow({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
+export function PainRow({ value, half = false, onChange }: { value: number | null; half?: boolean; onChange: (v: number) => void }) {
   return (
     <div className="flex gap-1.5">
-      {Array.from({ length: 11 }, (_, i) => i).map((n) => (
-        <button key={n} onClick={() => onChange(n)}
-          className={`flex-1 h-12 rounded-lg text-base font-bold transition-all ${
-            value === n
-              ? "bg-blue-500 text-white shadow-sm scale-105"
-              : "bg-gray-100 text-gray-700 active:bg-gray-200"
-          }`}
-        >
-          {n}
-        </button>
-      ))}
+      {Array.from({ length: 11 }, (_, i) => i).map((n) => {
+        const selected = value === n;
+        return (
+          <button key={n} onClick={() => onChange(n)}
+            className={`flex-1 h-12 rounded-lg text-base font-bold transition-all ${
+              selected
+                ? "bg-blue-500 text-white shadow-sm scale-105"
+                : "bg-gray-100 text-gray-700 active:bg-gray-200"
+            }`}
+          >
+            {selected && half ? `${n}½` : n}
+          </button>
+        );
+      })}
     </div>
   );
 }

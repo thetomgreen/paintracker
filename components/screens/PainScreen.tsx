@@ -4,6 +4,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { PainRow } from "./MorningScreen";
 import NoteField from "@/components/NoteField";
+import HalfToggle from "@/components/HalfToggle";
+
+function splitPain(v: number | null): { integer: number | null; half: boolean } {
+  if (v === null || v === undefined) return { integer: null, half: false };
+  return { integer: Math.floor(v), half: v % 1 !== 0 };
+}
+function combinePain(integer: number | null, half: boolean): number | null {
+  if (integer === null && !half) return null;
+  return (integer ?? 0) + (half ? 0.5 : 0);
+}
 
 interface Props {
   date: string;
@@ -18,6 +28,7 @@ const NOTE_CONFIG = {
 
 export default function PainScreen({ date, promptType, onSaved }: Props) {
   const [painLevel,        setPainLevel]        = useState<number | null>(null);
+  const [painHalf,         setPainHalf]         = useState<boolean>(false);
   const [saving,           setSaving]           = useState(false);
   const [saved,            setSaved]            = useState(false);
   const [showErrors,       setShowErrors]       = useState(false);
@@ -31,6 +42,7 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
 
   useEffect(() => {
     setPainLevel(null);
+    setPainHalf(false);
     setSaved(false);
     setShowErrors(false);
     setEntryId(null);
@@ -66,7 +78,9 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
     const [painRes, notesRes, tennisRes] = await Promise.all(queries);
 
     if (painRes.data) {
-      setPainLevel(painRes.data.pain_level);
+      const { integer, half } = splitPain(painRes.data.pain_level);
+      setPainLevel(integer);
+      setPainHalf(half);
       setEntryId(painRes.data.id);
       setSaved(true);
     }
@@ -83,14 +97,15 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
   }
 
   async function handleSave() {
-    if (painLevel === null) { setShowErrors(true); return; }
+    const painValue = combinePain(painLevel, painHalf);
+    if (painValue === null) { setShowErrors(true); return; }
     setSaving(true);
 
     if (entryId) {
-      await supabase.from("pain_entries").update({ pain_level: painLevel }).eq("id", entryId);
+      await supabase.from("pain_entries").update({ pain_level: painValue }).eq("id", entryId);
     } else {
       const { data } = await supabase.from("pain_entries").insert({
-        prompt_type: promptType, pain_level: painLevel, entry_date: date,
+        prompt_type: promptType, pain_level: painValue, entry_date: date,
       }).select().single();
       if (data) setEntryId(data.id);
     }
@@ -127,18 +142,21 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <div className={`rounded-xl border-2 p-4 transition-colors ${
-        showErrors && painLevel === null ? "border-red-300 bg-red-50" : "border-transparent"
+        showErrors && combinePain(painLevel, painHalf) === null ? "border-red-300 bg-red-50" : "border-transparent"
       }`}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">
           How is your level of pain now?
         </h2>
-        <PainRow value={painLevel} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
-        <div className="mt-3 flex flex-col gap-2">
-          {promptType === "evening" && tennisToday && (
-            <NoteField label="tennis" value={tennisNote} onChange={setTennisNote} />
-          )}
-          <NoteField label={noteConfig.firstLabel} value={firstNote} onChange={setFirstNote} />
-          <NoteField label={noteConfig.secondLabel} value={secondNote} onChange={setSecondNote} />
+        <PainRow value={painLevel} half={painHalf} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
+        <div className="mt-3 flex items-start gap-2">
+          <div className="flex-1 flex flex-col gap-2">
+            {promptType === "evening" && tennisToday && (
+              <NoteField label="tennis" value={tennisNote} onChange={setTennisNote} />
+            )}
+            <NoteField label={noteConfig.firstLabel} value={firstNote} onChange={setFirstNote} />
+            <NoteField label={noteConfig.secondLabel} value={secondNote} onChange={setSecondNote} />
+          </div>
+          <HalfToggle value={painHalf} onChange={(v) => { setPainHalf(v); setSaved(false); }} />
         </div>
       </div>
 
@@ -146,16 +164,16 @@ export default function PainScreen({ date, promptType, onSaved }: Props) {
         onClick={handleSave}
         disabled={saving}
         className={`w-full py-4 rounded-xl text-lg font-bold transition-all ${
-          saved                           ? "bg-green-500 text-white" :
-          saving                          ? "bg-blue-300 text-white"  :
-          showErrors && painLevel === null ? "bg-red-500 text-white"   :
-          painLevel !== null              ? "bg-blue-500 text-white active:bg-blue-600" :
-                                            "bg-gray-200 text-gray-400"
+          saved                                                    ? "bg-green-500 text-white" :
+          saving                                                   ? "bg-blue-300 text-white"  :
+          showErrors && combinePain(painLevel, painHalf) === null  ? "bg-red-500 text-white"   :
+          combinePain(painLevel, painHalf) !== null                ? "bg-blue-500 text-white active:bg-blue-600" :
+                                                                     "bg-gray-200 text-gray-400"
         }`}
       >
         {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
       </button>
-      {showErrors && painLevel === null && (
+      {showErrors && combinePain(painLevel, painHalf) === null && (
         <p className="text-center text-red-500 font-medium">Please answer all required questions</p>
       )}
     </div>

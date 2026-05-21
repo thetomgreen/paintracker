@@ -6,6 +6,16 @@ import ActivityLog from "@/components/ActivityLog";
 import PtEntry from "@/components/PtEntry";
 import { PainRow } from "./MorningScreen";
 import NoteField from "@/components/NoteField";
+import HalfToggle from "@/components/HalfToggle";
+
+function splitPain(v: number | null): { integer: number | null; half: boolean } {
+  if (v === null || v === undefined) return { integer: null, half: false };
+  return { integer: Math.floor(v), half: v % 1 !== 0 };
+}
+function combinePain(integer: number | null, half: boolean): number | null {
+  if (integer === null && !half) return null;
+  return (integer ?? 0) + (half ? 0.5 : 0);
+}
 
 interface MedEntry {
   id: string;
@@ -20,6 +30,7 @@ function sectionClass(hasError: boolean) {
 
 export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved: () => void }) {
   const [painLevel,         setPainLevel]         = useState<number | null>(null);
+  const [painHalf,          setPainHalf]          = useState<boolean>(false);
   const [painEntryId,       setPainEntryId]       = useState<string | null>(null);
   const [oxyAfternoon,      setOxyAfternoon]      = useState<boolean | null>(null);
   const [medEntry,          setMedEntry]          = useState<MedEntry | null>(null);
@@ -34,7 +45,8 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
   const [ptNote,            setPtNote]            = useState("");
   const [bedtimeGeneralNote, setBedtimeGeneralNote] = useState("");
 
-  const canSave = painLevel !== null && ptValue !== null && oxyAfternoon !== null;
+  const painValue = combinePain(painLevel, painHalf);
+  const canSave = painValue !== null && ptValue !== null && oxyAfternoon !== null;
 
   // Called via effect (not directly) so child saveCounter effects fire first
   useEffect(() => {
@@ -54,7 +66,9 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
     ]);
 
     if (painRes.data) {
-      setPainLevel(painRes.data.pain_level);
+      const { integer, half } = splitPain(painRes.data.pain_level);
+      setPainLevel(integer);
+      setPainHalf(half);
       setPainEntryId(painRes.data.id);
     }
     if (medRes.data) {
@@ -88,12 +102,12 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
     setSaving(true);
     setSaved(false);
 
-    if (painLevel !== null) {
+    if (painValue !== null) {
       if (painEntryId) {
-        await supabase.from("pain_entries").update({ pain_level: painLevel }).eq("id", painEntryId);
+        await supabase.from("pain_entries").update({ pain_level: painValue }).eq("id", painEntryId);
       } else {
         const { data } = await supabase.from("pain_entries").insert({
-          prompt_type: "bedtime", pain_level: painLevel, entry_date: date,
+          prompt_type: "bedtime", pain_level: painValue, entry_date: date,
         }).select().single();
         if (data) setPainEntryId(data.id);
       }
@@ -142,9 +156,12 @@ export default function BedtimeScreen({ date, onSaved }: { date: string; onSaved
   return (
     <div className="flex flex-col gap-4">
 
-      <div className={sectionClass(showErrors && painLevel === null)}>
+      <div className={sectionClass(showErrors && painValue === null)}>
         <h2 className="text-xl font-semibold text-gray-800 mb-4">How is your level of pain now?</h2>
-        <PainRow value={painLevel} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
+        <PainRow value={painLevel} half={painHalf} onChange={(v) => { setPainLevel(v); setSaved(false); }} />
+        <div className="mt-3 flex justify-end">
+          <HalfToggle value={painHalf} onChange={(v) => { setPainHalf(v); setSaved(false); }} />
+        </div>
       </div>
 
       <hr className="border-gray-200 mx-4" />
