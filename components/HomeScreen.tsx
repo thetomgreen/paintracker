@@ -33,18 +33,6 @@ const MOON_ANIMATIONS: string[] = [
   "moonPop        0.7s ease-in-out   forwards",        // 20 bold pop
 ];
 
-const BOOK_QUOTES = [
-  "Your pain is real, and understanding it can loosen its grip.",
-  "A sensitized nervous system can change.",
-  "Fear can amplify pain, but safety can soften it.",
-  "Healing often begins when mind and body stop being treated as enemies.",
-  "Pain has many ingredients, which means it has many openings for relief.",
-  "Understanding pain can reduce it.",
-  "Chronic pain is not always a life sentence.",
-  "Small shifts in sleep, stress, movement, and belief can change the pain experience.",
-  "Your body may be overprotecting you, not betraying you.",
-];
-
 // Maps UI screen name to the prompt_type value stored in the DB
 const DB_PROMPT_TYPE: Record<ScreenType, string> = {
   morning:   "morning",
@@ -84,13 +72,6 @@ const NEXT_SCREEN: Partial<Record<ScreenType, { screen: ScreenType; timeKey: str
 
 // Ordered list of screens (earliest to latest in the day)
 const SCREEN_ORDER: ScreenType[] = ["morning", "lunchtime", "evening", "bedtime"];
-
-function getPreviousPeriodKey(today: string, yesterday: string, screen: ScreenType): string {
-  if (screen === "morning")   return `${yesterday}-evening`;
-  if (screen === "lunchtime") return `${today}-morning`;
-  if (screen === "evening")   return `${today}-lunchtime`;
-  return "";
-}
 
 function getCurrentScreen(): ScreenType {
   const hour = new Date().getHours();
@@ -149,8 +130,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
   const [ptStreakSaved,       setPtStreakSaved]        = useState(0);
   const [ptTwiceStreakSaved,  setPtTwiceStreakSaved]   = useState(0);
   const [savedFlash,          setSavedFlash]           = useState(false);
-  const [showBookReminder,    setShowBookReminder]     = useState(false);
-  const [bookQuoteIndex,      setBookQuoteIndex]       = useState(0);
   const [moonAnimIndex,       setMoonAnimIndex]        = useState(0);
   // Periods (across today + yesterday) that have no pain_entries row — drives the "Back to X" and "Enter X now" backfill buttons.
   // Keyed by `${date}|${screen}`.
@@ -310,7 +289,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
       setChecking(true);
       setThankYou(false);
       setSavedFlash(false);
-      setShowBookReminder(false);
       if (!supabase) { setChecking(false); return; }
       if (skipAlreadyDoneCheck.current) {
         skipAlreadyDoneCheck.current = false;
@@ -336,28 +314,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
       const currentDone = donePairs.has(`${entryDate}|${DB_PROMPT_TYPE[screen]}`);
       if (currentDone) {
         setThankYou(true);
-      } else if (entryDate === today && screen !== "bedtime") {
-        // 1-in-4 chance of showing the book reminder, but not two periods in a row
-        const roll = Math.floor(Math.random() * 4) + 1;
-        if (roll === 4) {
-          const prevKey = getPreviousPeriodKey(today, yesterday, screen);
-          const lastShownAt = typeof window !== "undefined"
-            ? localStorage.getItem("bookReminderShownAt") ?? ""
-            : "";
-          if (lastShownAt !== prevKey) {
-            const currentKey = `${today}-${screen}`;
-            const rawIdx = typeof window !== "undefined"
-              ? parseInt(localStorage.getItem("bookReminderQuoteIndex") ?? "0", 10)
-              : 0;
-            const idx = isNaN(rawIdx) ? 0 : rawIdx % BOOK_QUOTES.length;
-            setBookQuoteIndex(idx);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("bookReminderShownAt", currentKey);
-              localStorage.setItem("bookReminderQuoteIndex", String((idx + 1) % BOOK_QUOTES.length));
-            }
-            setShowBookReminder(true);
-          }
-        }
       }
       setChecking(false);
     }
@@ -406,7 +362,6 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
     }
     setThankYou(false);
     setSavedFlash(false);
-    setShowBookReminder(false);
     // Only today's entries were wiped — yesterday's missing state unchanged.
     setMissingPeriods((prev) => {
       const next = new Set(prev);
@@ -435,26 +390,7 @@ export default function HomeScreen({ devMode = false, promptParam }: { devMode?:
 
       {/* Main content */}
       <main className="max-w-lg mx-auto px-4 py-8">
-        {checking ? null : showBookReminder ? (
-          /* Book reminder interstitial — shown 1-in-4 times before data entry */
-          <div className="flex flex-col items-center gap-6 py-12 text-center max-w-sm mx-auto">
-            <p className="text-xl font-semibold text-gray-800 leading-snug">
-              Just a friendly reminder to keep reading{" "}
-              <em>Tell Me Where It Hurts: The New Science of Pain and How to Heal</em>.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 w-full text-left">
-              <p className="text-gray-700 italic leading-relaxed">
-                &ldquo;{BOOK_QUOTES[bookQuoteIndex]}&rdquo;
-              </p>
-            </div>
-            <button
-              onClick={() => setShowBookReminder(false)}
-              className="px-6 py-4 bg-blue-500 text-white rounded-xl text-base font-semibold active:bg-blue-600 w-full"
-            >
-              Enter {config.label.toLowerCase()} data
-            </button>
-          </div>
-        ) : savedFlash ? (
+        {checking ? null : savedFlash ? (
           /* Brief "Thanks" flash shown on the form screen before transitioning */
           <div className="flex flex-col items-center justify-center gap-5 py-24 text-center"
                style={{ animation: "ptFlashIn 0.3s ease-out" }}>
