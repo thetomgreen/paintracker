@@ -269,7 +269,7 @@ export function PainRow({ value, half = false, onChange }: { value: number | nul
                 : "bg-gray-100 text-gray-700 active:bg-gray-200"
             }`}
           >
-            {selected && half ? `${n}½` : n}
+            {selected && half ? (n === 0 ? "½" : `${n}½`) : n}
           </button>
         );
       })}
